@@ -1,6 +1,6 @@
 # Collaborator
 
-A new workspace for a new way of creating: with agents.
+Collaborator is a place to build with agents.
 
 ![Collaborator](screenshot.png)
 
