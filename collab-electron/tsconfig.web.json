@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "composite": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "outDir": "out",
+    "paths": {
+      "@collab/shared/*": ["./packages/shared/src/*"],
+      "@collab/theme/*": ["./packages/theme/src/*"],
+      "@collab/components/*": ["./packages/components/src/*"]
+    }
+  },
+  "include": ["src/windows/**/*", "packages/shared/src/**/*", "packages/components/src/**/*"]
+}

@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "composite": true,
+    "outDir": "out",
+    "baseUrl": ".",
+    "paths": {
+      "@collab/shared": ["packages/shared/src"],
+      "@collab/shared/*": ["packages/shared/src/*"],
+      "@collab/components": ["packages/components/src"],
+      "@collab/components/*": ["packages/components/src/*"],
+      "@collab/theme": ["packages/theme/src"],
+      "@collab/theme/*": ["packages/theme/src/*"]
+    }
+  },
+  "include": ["src/main/**/*", "src/preload/**/*", "electron.vite.config.ts"]
+}

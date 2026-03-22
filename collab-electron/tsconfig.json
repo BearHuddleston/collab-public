@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@collab/shared": ["packages/shared/src"],
+      "@collab/shared/*": ["packages/shared/src/*"],
+      "@collab/components": ["packages/components/src"],
+      "@collab/components/*": ["packages/components/src/*"],
+      "@collab/theme": ["packages/theme/src"],
+      "@collab/theme/*": ["packages/theme/src/*"]
+    }
+  },
+  "files": [],
+  "references": [
+    { "path": "./tsconfig.node.json" },
+    { "path": "./tsconfig.web.json" }
+  ]
+}
