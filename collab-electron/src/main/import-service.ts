@@ -2,6 +2,7 @@ import { join, extname, basename } from "node:path";
 import { access } from "node:fs/promises";
 import Parser from "@postlight/parser";
 import { fsWriteFile } from "./files";
+import { isSameOrChildNativePath } from "./path-utils";
 
 export function validateUrl(url: string): void {
   let parsed: URL;
@@ -21,10 +22,7 @@ export function validateWorkspaceBoundary(
   targetDir: string,
   workspaceRoot: string,
 ): void {
-  if (
-    targetDir !== workspaceRoot &&
-    !targetDir.startsWith(workspaceRoot + "/")
-  ) {
+  if (!isSameOrChildNativePath(workspaceRoot, targetDir)) {
     throw new Error("Target directory is outside workspace");
   }
 }

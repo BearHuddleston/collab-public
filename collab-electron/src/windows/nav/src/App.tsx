@@ -20,6 +20,11 @@ import {
 } from '@phosphor-icons/react';
 import { SourcesFeed } from '@collab/components/SourcesFeed';
 import '@collab/components/SourcesFeed/SourcesFeed.css';
+import {
+	joinPath,
+	pathBasename,
+	pathDirname,
+} from '@collab/shared/path-utils';
 import type { AppConfig } from '@collab/shared/types';
 
 function ImportWebArticleModal({
@@ -175,7 +180,7 @@ export default function App() {
 						{
 							path: workspacePath,
 							name:
-								workspacePath.split('/').pop() ??
+								pathBasename(workspacePath) ??
 								workspacePath,
 						},
 					]
@@ -332,7 +337,7 @@ export default function App() {
 			fileName = `${stem} ${n}.md`;
 		}
 
-		const filePath = `${folderPath}/${fileName}`;
+		const filePath = joinPath(folderPath, fileName);
 		const frontmatter = [
 			'---',
 			'type: "note"',
@@ -367,7 +372,7 @@ export default function App() {
 			folderName = `New Folder ${n}`;
 		}
 
-		const folderPath = `${parentPath}/${folderName}`;
+		const folderPath = joinPath(parentPath, folderName);
 		await window.api.createDir(folderPath);
 		expandFolder(parentPath);
 		inlineRename.startRename(
@@ -587,10 +592,7 @@ export default function App() {
 				? workspacePath
 				: item.kind === 'folder'
 					? item.path
-					: item.path.substring(
-							0,
-							item.path.lastIndexOf('/'),
-						);
+					: pathDirname(item.path);
 
 			switch (action) {
 				case 'new-file':
@@ -650,12 +652,7 @@ export default function App() {
 						window.api.openInTerminal(
 							item.kind === 'folder'
 								? item.path
-								: item.path.substring(
-										0,
-										item.path.lastIndexOf(
-											'/',
-										),
-									),
+								: pathDirname(item.path),
 						);
 					break;
 			}

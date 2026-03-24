@@ -1,7 +1,6 @@
 import { readFile, writeFile, rename, mkdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { tmpdir } from "node:os";
 import * as crypto from "node:crypto";
 import { COLLAB_DIR } from "./paths";
 
@@ -49,7 +48,7 @@ export async function saveState(state: CanvasState): Promise<void> {
     await mkdir(STATE_DIR, { recursive: true });
   }
   const tmp = join(
-    tmpdir(),
+    STATE_DIR,
     `canvas-state-${crypto.randomUUID()}.json`,
   );
   const json = JSON.stringify(state, null, 2);

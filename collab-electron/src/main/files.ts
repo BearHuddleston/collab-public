@@ -12,6 +12,7 @@ import {
 } from "node:fs/promises";
 import { basename, dirname, extname, join } from "node:path";
 import { type FileFilter, isImageFile } from "./file-filter";
+import { isSameOrChildNativePath, portableRelativePath } from "./path-utils";
 
 export interface DirEntry {
   name: string;
@@ -35,13 +36,12 @@ export function shouldIncludeEntry(
     return true;
   }
 
-  if (dirPath !== rootPath && !dirPath.startsWith(rootPath + "/")) {
+  if (!isSameOrChildNativePath(rootPath, dirPath)) {
     return true;
   }
 
-  const prefix = dirPath.length > rootPath.length
-    ? dirPath.slice(rootPath.length + 1) + "/"
-    : "";
+  const relativeDir = portableRelativePath(rootPath, dirPath);
+  const prefix = relativeDir ? `${relativeDir}/` : "";
   const relPath = prefix + entry.name;
 
   return !filter.isIgnored(

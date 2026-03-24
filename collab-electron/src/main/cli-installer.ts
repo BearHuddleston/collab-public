@@ -22,6 +22,10 @@ function getCliSource(): string {
 }
 
 export function installCli(): void {
+  if (process.platform === "win32") {
+    return;
+  }
+
   const source = getCliSource();
   if (!existsSync(source)) {
     console.warn(

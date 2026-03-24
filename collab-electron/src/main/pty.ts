@@ -4,9 +4,6 @@ import * as fs from "node:fs";
 import * as crypto from "crypto";
 import { type IDisposable } from "node-pty";
 import {
-  getTmuxBin,
-  getTerminfoDir,
-  tmuxExec,
   tmuxSessionName,
   writeSessionMeta,
   readSessionMeta,
@@ -14,6 +11,7 @@ import {
   SESSION_DIR,
   type SessionMeta,
 } from "./tmux";
+import { getTerminalBackend } from "./terminal-backend";
 
 interface PtySession {
   pty: pty.IPty;
@@ -23,6 +21,7 @@ interface PtySession {
 
 const sessions = new Map<string, PtySession>();
 let shuttingDown = false;
+const backend = getTerminalBackend();
 
 export function setShuttingDown(value: boolean): void {
   shuttingDown = value;
@@ -50,32 +49,14 @@ function sendToSender(
   }
 }
 
-function utf8Env(): Record<string, string> {
-  const env = { ...process.env } as Record<string, string>;
-  if (!env.LANG || !env.LANG.includes("UTF-8")) {
-    env.LANG = "en_US.UTF-8";
-  }
-  const terminfoDir = getTerminfoDir();
-  if (terminfoDir) {
-    env.TERMINFO = terminfoDir;
-  }
-  return env;
-}
-
 function attachClient(
   sessionId: string,
   cols: number,
   rows: number,
   senderWebContentsId?: number,
 ): pty.IPty {
-  const tmuxBin = getTmuxBin();
   const name = tmuxSessionName(sessionId);
-
-  const ptyProcess = pty.spawn(
-    tmuxBin,
-    ["-L", "collab", "-u", "attach-session", "-t", name],
-    { name: "xterm-256color", cols, rows, env: utf8Env() },
-  );
+  const ptyProcess = backend.attachClient(name, cols, rows);
 
   const disposables: IDisposable[] = [];
 
@@ -95,9 +76,7 @@ function attachClient(
         sessions.delete(sessionId);
         return;
       }
-      try {
-        tmuxExec("has-session", "-t", name);
-      } catch {
+      if (!backend.hasSession(name)) {
         deleteSessionMeta(sessionId);
         sendToSender(
           senderWebContentsId,
@@ -125,32 +104,18 @@ export function createSession(
   rows?: number,
 ): { sessionId: string; shell: string } {
   const sessionId = crypto.randomBytes(8).toString("hex");
-  const shell = process.env.SHELL || "/bin/zsh";
+  const shell = backend.getDefaultShell();
   const name = tmuxSessionName(sessionId);
-  const resolvedCwd = cwd || os.homedir();
+  const hostCwd = cwd || os.homedir();
+  const resolvedCwd = backend.resolveSessionCwd(hostCwd);
   const c = cols || 80;
   const r = rows || 24;
 
-  tmuxExec(
-    "new-session", "-d",
-    "-s", name,
-    "-c", resolvedCwd,
-    "-x", String(c),
-    "-y", String(r),
-  );
-
-  tmuxExec(
-    "set-environment", "-t", name,
-    "COLLAB_PTY_SESSION_ID", sessionId,
-  );
-  tmuxExec(
-    "set-environment", "-t", name,
-    "SHELL", shell,
-  );
+  backend.createSession(name, resolvedCwd, shell, c, r);
 
   writeSessionMeta(sessionId, {
     shell,
-    cwd: resolvedCwd,
+    cwd: hostCwd,
     createdAt: new Date().toISOString(),
   });
 
@@ -184,19 +149,14 @@ export function reconnectSession(
 } {
   const name = tmuxSessionName(sessionId);
 
-  try {
-    tmuxExec("has-session", "-t", name);
-  } catch {
+  if (!backend.hasSession(name)) {
     deleteSessionMeta(sessionId);
     throw new Error(`tmux session ${name} not found`);
   }
 
   let scrollback = "";
   try {
-    const raw = tmuxExec(
-      "capture-pane", "-t", name,
-      "-p", "-e", "-S", "-200000",
-    );
+    const raw = backend.captureScrollback(name);
     scrollback = stripTrailingBlanks(raw);
   } catch {
     // Proceed without scrollback
@@ -205,18 +165,14 @@ export function reconnectSession(
   attachClient(sessionId, cols, rows, senderWebContentsId);
 
   try {
-    tmuxExec(
-      "resize-window", "-t", name,
-      "-x", String(cols), "-y", String(rows),
-    );
+    backend.resizeSession(name, cols, rows);
   } catch {
     // Non-fatal
   }
 
   const meta = readSessionMeta(sessionId);
   const session = sessions.get(sessionId)!;
-  session.shell =
-    meta?.shell || process.env.SHELL || "/bin/zsh";
+  session.shell = meta?.shell || backend.getDefaultShell();
 
   return { sessionId, shell: session.shell, meta, scrollback };
 }
@@ -235,7 +191,7 @@ export function sendRawKeys(
   data: string,
 ): void {
   const name = tmuxSessionName(sessionId);
-  tmuxExec("send-keys", "-l", "-t", name, data);
+  backend.sendRawKeys(name, data);
 }
 
 export function resizeSession(
@@ -249,10 +205,7 @@ export function resizeSession(
 
   const name = tmuxSessionName(sessionId);
   try {
-    tmuxExec(
-      "resize-window", "-t", name,
-      "-x", String(cols), "-y", String(rows),
-    );
+    backend.resizeSession(name, cols, rows);
   } catch {
     // Non-fatal
   }
@@ -268,7 +221,7 @@ export function killSession(sessionId: string): void {
 
   const name = tmuxSessionName(sessionId);
   try {
-    tmuxExec("kill-session", "-t", name);
+    backend.killSession(name);
   } catch {
     // Session may already be dead
   }
@@ -320,7 +273,7 @@ export function killAllAndWait(): Promise<void> {
 export function destroyAll(): void {
   killAll();
   try {
-    tmuxExec("kill-server");
+    backend.killServer();
   } catch {
     // Server may not be running
   }
@@ -332,16 +285,7 @@ export interface DiscoveredSession {
 }
 
 export function discoverSessions(): DiscoveredSession[] {
-  let tmuxNames: string[];
-  try {
-    const raw = tmuxExec(
-      "list-sessions", "-F", "#{session_name}",
-    );
-    tmuxNames = raw.split("\n").filter(Boolean);
-  } catch {
-    tmuxNames = [];
-  }
-
+  const tmuxNames = backend.listSessionNames();
   const tmuxSet = new Set(tmuxNames);
   const result: DiscoveredSession[] = [];
 
@@ -372,7 +316,7 @@ export function discoverSessions(): DiscoveredSession[] {
   for (const orphan of tmuxSet) {
     if (orphan.startsWith("collab-")) {
       try {
-        tmuxExec("kill-session", "-t", orphan);
+        backend.killSession(orphan);
       } catch {
         // Already dead
       }
@@ -383,5 +327,15 @@ export function discoverSessions(): DiscoveredSession[] {
 }
 
 export function verifyTmuxAvailable(): void {
-  tmuxExec("-V");
+  backend.verifyAvailable();
+}
+
+export function getForegroundProcess(
+  sessionId: string,
+): string | null {
+  return backend.getForegroundProcess(tmuxSessionName(sessionId));
+}
+
+export function translatePathForTerminal(path: string): string {
+  return backend.translatePath(path);
 }

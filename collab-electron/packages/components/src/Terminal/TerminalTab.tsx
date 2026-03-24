@@ -89,10 +89,10 @@ function TerminalTab({ sessionId, visible, restored, scrollbackData }: TerminalT
 				}
 				return false;
 			}
-			if (e.type === "keydown" && e.metaKey) {
-				if (e.key === "t" || (e.key >= "1" && e.key <= "9")) {
-					return false;
-				}
+        if (e.type === "keydown" && (e.metaKey || e.ctrlKey)) {
+          if (e.key === "t" || (e.key >= "1" && e.key <= "9")) {
+            return false;
+          }
 			}
 			return true;
 		});

@@ -1,4 +1,5 @@
 import { isImageFile } from "@collab/shared/image";
+import { pathRelativeSuffix } from "@collab/shared/path-utils";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
 	ForceDirectedGraph,
@@ -180,9 +181,8 @@ export function WorkspaceGraph({
 		if (!mergedData) return null;
 		if (!scopePath) return mergedData;
 
-		const relativePrefix = scopePath.startsWith(workspacePath)
-			? scopePath.slice(workspacePath.length).replace(/^\//, "")
-			: scopePath;
+		const relativePrefix =
+			pathRelativeSuffix(workspacePath, scopePath) ?? scopePath;
 		if (!relativePrefix) return mergedData;
 		const prefix = relativePrefix.endsWith("/")
 			? relativePrefix

@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
+import { isSameOrChildPath } from '@collab/shared/path-utils';
 
 interface UseDragDropReturn {
 	draggedPaths: string[] | null;
@@ -88,9 +89,7 @@ export function useDragDrop(
 			if (!paths) return;
 
 			const isInvalid = paths.some(
-				(p) =>
-					p === folderPath ||
-					folderPath.startsWith(p + '/'),
+				(p) => isSameOrChildPath(p, folderPath),
 			);
 			if (isInvalid) {
 				e.dataTransfer.dropEffect = 'none';
@@ -126,9 +125,7 @@ export function useDragDrop(
 			if (!paths || paths.length === 0) return;
 
 			const isInvalid = paths.some(
-				(p) =>
-					p === targetFolder ||
-					targetFolder.startsWith(p + '/'),
+				(p) => isSameOrChildPath(p, targetFolder),
 			);
 			if (isInvalid) return;
 

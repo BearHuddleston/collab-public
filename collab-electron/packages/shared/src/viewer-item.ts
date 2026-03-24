@@ -5,6 +5,7 @@ import type {
   Concept,
   ItemSource,
 } from "./types";
+import { pathBasename } from "./path-utils";
 
 interface FrontMatterAttributes {
   title?: string;
@@ -24,8 +25,7 @@ interface FrontMatterAttributes {
 }
 
 function filenameFromPath(path: string): string {
-  const segments = path.split("/");
-  const last = segments[segments.length - 1] ?? "";
+  const last = pathBasename(path);
   return last.replace(/\.[^.]+$/, "");
 }
 

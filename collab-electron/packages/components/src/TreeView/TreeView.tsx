@@ -15,6 +15,7 @@ import {
 } from '@phosphor-icons/react';
 import type { FlatItem } from './useFileTree';
 import type { TreeNode } from '@collab/shared/types';
+import { pathBasename } from '@collab/shared/path-utils';
 import {
 	formatRelativeTime,
 	displayFileName,
@@ -33,7 +34,7 @@ function flattenAllFiles(nodes: TreeNode[]): FlatItem[] {
 	function walk(children: TreeNode[]) {
 		for (const node of children) {
 			if (node.kind === 'file') {
-				const fileName = node.path.split('/').pop() ?? node.name;
+				const fileName = pathBasename(node.path) || node.name;
 				items.push({
 					id: node.path,
 					kind: 'file',

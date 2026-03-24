@@ -129,7 +129,7 @@ function App() {
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (!e.metaKey) return;
+      if (!(e.metaKey || e.ctrlKey)) return;
 
       if (e.key === "t") {
         e.preventDefault();
@@ -163,8 +163,8 @@ function App() {
       cdBusy.current = true;
       try {
         const session = await ensureTab();
-
-        const escaped = path.replace(/'/g, "'\\''");
+        const terminalPath = await window.api.ptyTranslatePath(path);
+        const escaped = terminalPath.replace(/'/g, "'\\''");
         const cmd = `cd '${escaped}'`;
 
         const fg = await window.api.ptyForegroundProcess(session.id);

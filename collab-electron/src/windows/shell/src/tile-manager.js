@@ -8,6 +8,10 @@ import {
 	createTileDOM, positionTile, updateTileTitle, getTileLabel,
 } from "./tile-renderer.js";
 import { attachDrag, attachResize } from "./tile-interactions.js";
+import {
+	isSameOrChildPath,
+	replacePathPrefix,
+} from "@collab/shared/path-utils";
 
 /**
  * Tile lifecycle manager: creation, deletion, persistence, webview
@@ -626,11 +630,13 @@ export function createTileManager({
 			}
 			if (
 				t.type === "graph" && t.folderPath &&
-				(t.folderPath === oldPath ||
-					t.folderPath.startsWith(oldPath + "/"))
+				isSameOrChildPath(oldPath, t.folderPath)
 			) {
-				t.folderPath =
-					newPath + t.folderPath.slice(oldPath.length);
+				t.folderPath = replacePathPrefix(
+					t.folderPath,
+					oldPath,
+					newPath,
+				);
 				const dom = tileDOMs.get(t.id);
 				if (dom) {
 					updateTileTitle(dom, t);

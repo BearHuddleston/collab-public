@@ -318,6 +318,7 @@ function applyZoomToAll(level: number): void {
 
 function buildAppMenu(): void {
   const isMac = process.platform === "darwin";
+  const fullScreenAccelerator = isMac ? "Ctrl+Cmd+F" : "F11";
 
   const template: Electron.MenuItemConstructorOptions[] = [
     ...(isMac
@@ -404,7 +405,7 @@ function buildAppMenu(): void {
         { role: "toggleDevTools" },
         {
           label: "Toggle Full Screen",
-          accelerator: "Ctrl+Cmd+F",
+          accelerator: fullScreenAccelerator,
           click: (_, win) => win?.setFullScreen(!win.isFullScreen()),
         },
       ],
@@ -452,10 +453,6 @@ function createWindow(): void {
     height: state.height,
     minWidth: 400,
     minHeight: 400,
-    titleBarStyle: "hidden",
-    vibrancy: "under-window",
-    visualEffectState: "active",
-    trafficLightPosition: { x: 14, y: 12 },
     webPreferences: {
       preload: getPreloadPath("shell"),
       contextIsolation: true,
@@ -463,6 +460,13 @@ function createWindow(): void {
       webviewTag: true,
     },
   };
+
+  if (process.platform === "darwin") {
+    windowOptions.titleBarStyle = "hidden";
+    windowOptions.vibrancy = "under-window";
+    windowOptions.visualEffectState = "active";
+    windowOptions.trafficLightPosition = { x: 14, y: 12 };
+  }
 
   if (useSaved) {
     windowOptions.x = state.x;
@@ -599,6 +603,18 @@ ipcMain.handle(
   () => pty.discoverSessions(),
 );
 
+ipcMain.handle(
+  "pty:foreground-process",
+  (_event, { sessionId }: { sessionId: string }) =>
+    pty.getForegroundProcess(sessionId),
+);
+
+ipcMain.handle(
+  "pty:translate-path",
+  (_event, { path }: { path: string }) =>
+    pty.translatePathForTerminal(path),
+);
+
 let settingsOpen = false;
 
 function setSettingsOpen(open: boolean): void {
@@ -716,10 +732,16 @@ app.whenReady().then(async () => {
   );
 
   protocol.handle("collab-file", (request) => {
-    const filePath = decodeURIComponent(
+    let filePath = decodeURIComponent(
       new URL(request.url).pathname,
     );
-    return net.fetch(`file://${filePath}`);
+    if (
+      process.platform === "win32" &&
+      /^\/[A-Za-z]:\//.test(filePath)
+    ) {
+      filePath = filePath.slice(1);
+    }
+    return net.fetch(pathToFileURL(filePath).href);
   });
 
   shuttingDown = false;
@@ -733,7 +755,9 @@ app.whenReady().then(async () => {
   }
 
   config = loadConfig();
-  installCli();
+  if (process.platform !== "win32") {
+    installCli();
+  }
   watcher.startWorker();
   registerIpcHandlers(config);
   registerIntegrationsIpc();

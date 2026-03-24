@@ -6,6 +6,12 @@ import {
 	useRef,
 } from 'react';
 import type { TreeNode } from '@collab/shared/types';
+import {
+	isSameOrChildPath,
+	joinPath,
+	pathDirname,
+	pathRelativeSuffix,
+} from '@collab/shared/path-utils';
 import type { SortMode } from './types';
 
 export interface FlatItem {
@@ -186,11 +192,11 @@ export function useFileTree(
 							modifiedAt: string;
 							fileCount?: number;
 						}): TreeNode => {
-							const node: TreeNode = {
-								name: e.name,
-								path: `${dirPath}/${e.name}`,
-								kind: e.isDirectory
-									? 'folder'
+								const node: TreeNode = {
+									name: e.name,
+									path: joinPath(dirPath, e.name),
+									kind: e.isDirectory
+										? 'folder'
 									: 'file',
 								ctime: e.createdAt,
 								mtime: e.modifiedAt,
@@ -275,24 +281,20 @@ export function useFileTree(
 			);
 			const toReload = new Set<string>();
 			for (const dirPath of affectedDirs) {
-				if (
-					dirContentsRef.current.has(dirPath) ||
-					pendingLoadsRef.current.has(dirPath)
-				) {
-					toReload.add(dirPath);
-				} else {
-					let parent = dirPath;
-					while (true) {
-						const slash =
-							parent.lastIndexOf('/');
-						if (slash <= 0) break;
-						parent = parent.substring(
-							0,
-							slash,
-						);
-						if (
-							dirContentsRef.current.has(
-								parent,
+					if (
+						dirContentsRef.current.has(dirPath) ||
+						pendingLoadsRef.current.has(dirPath)
+					) {
+						toReload.add(dirPath);
+					} else {
+						let parent = dirPath;
+						while (true) {
+							const nextParent = pathDirname(parent);
+							if (!nextParent || nextParent === parent) break;
+							parent = nextParent;
+							if (
+								dirContentsRef.current.has(
+									parent,
 							)
 						) {
 							toReload.add(parent);
@@ -329,15 +331,12 @@ export function useFileTree(
 					string,
 					TreeNode[]
 				>();
-				for (const [k, v] of prev) {
-					for (const root of roots) {
-						if (
-							k === root ||
-							k.startsWith(`${root}/`)
-						) {
-							next.set(k, v);
+					for (const [k, v] of prev) {
+						for (const root of roots) {
+							if (isSameOrChildPath(root, k)) {
+								next.set(k, v);
+							}
 						}
-					}
 				}
 				return next;
 			});
@@ -348,18 +347,13 @@ export function useFileTree(
 					if (
 						Array.isArray(stored) &&
 						stored.length > 0
-					) {
-						for (const p of stored as string[]) {
-							for (const root of roots) {
-								if (
-									p === root ||
-									p.startsWith(
-										`${root}/`,
-									)
-								) {
-									valid.add(p);
+						) {
+							for (const p of stored as string[]) {
+								for (const root of roots) {
+									if (isSameOrChildPath(root, p)) {
+										valid.add(p);
+									}
 								}
-							}
 						}
 					} else {
 						for (const root of roots) {
@@ -430,10 +424,7 @@ export function useFileTree(
 					const next = new Set(prev);
 					if (recursive) {
 						for (const p of prev) {
-							if (
-								p === path ||
-								p.startsWith(path + '/')
-							) {
+							if (isSameOrChildPath(path, p)) {
 								next.delete(p);
 							}
 						}
@@ -514,22 +505,19 @@ export function useFileTree(
 		(filePath: string) => {
 			const roots = folders.map((f) => f.path);
 			const root = roots.find(
-				(r) =>
-					filePath === r ||
-					filePath.startsWith(r + '/'),
+				(r) => isSameOrChildPath(r, filePath),
 			);
 			if (!root) return;
 
-			const relative = filePath.slice(
-				root.length + 1,
-			);
-			const parts = relative.split('/');
+			const relative = pathRelativeSuffix(root, filePath);
+			if (relative === null) return;
+			const parts = relative ? relative.split('/') : [];
 			parts.pop();
 
 			const toExpand: string[] = [root];
 			let current = root;
 			for (const part of parts) {
-				current = `${current}/${part}`;
+				current = joinPath(current, part);
 				toExpand.push(current);
 			}
 

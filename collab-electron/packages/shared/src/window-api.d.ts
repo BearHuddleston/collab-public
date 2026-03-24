@@ -221,6 +221,10 @@ export interface CollabApi {
     cols: number,
     rows: number,
   ) => Promise<PtySession & { scrollback: string }>;
+  ptyForegroundProcess: (
+    sessionId: string,
+  ) => Promise<string | null>;
+  ptyTranslatePath: (path: string) => Promise<string>;
   ptyDiscover: () => Promise<
     Array<{
       sessionId: string;

@@ -228,6 +228,10 @@ contextBridge.exposeInMainWorld("api", {
     ),
   ptyDiscover: () =>
     ipcRenderer.invoke("pty:discover"),
+  ptyForegroundProcess: (sessionId: string) =>
+    ipcRenderer.invoke("pty:foreground-process", { sessionId }),
+  ptyTranslatePath: (path: string) =>
+    ipcRenderer.invoke("pty:translate-path", { path }),
   onPtyData: (cb: PtyDataCallback) => {
     dataListeners.add(cb);
   },
