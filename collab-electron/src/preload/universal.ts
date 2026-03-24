@@ -1,4 +1,5 @@
 import {
+  clipboard,
   contextBridge,
   ipcRenderer,
   type IpcRendererEvent,
@@ -275,6 +276,8 @@ contextBridge.exposeInMainWorld("api", {
   // Theme
   setTheme: (mode: string) =>
     ipcRenderer.invoke("theme:set", mode),
+  readClipboardText: () => clipboard.readText(),
+  writeClipboardText: (text: string) => clipboard.writeText(text),
 
   // Settings
   openFolder: () =>

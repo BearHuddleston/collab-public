@@ -12,6 +12,9 @@ import "./TerminalTab.css";
 // call, preventing partial-render artifacts from the renderer
 // processing many small sequential writes.
 const DATA_BUFFER_FLUSH_MS = 5;
+const IS_MAC =
+	typeof navigator !== "undefined" &&
+	/Mac|iPhone|iPad|iPod/.test(navigator.platform);
 
 interface TerminalTabProps {
 	sessionId: string;
@@ -25,7 +28,8 @@ function TerminalTab({ sessionId, visible, restored, scrollbackData }: TerminalT
 	const fitRef = useRef<FitAddon | null>(null);
 
 	useEffect(() => {
-		if (!containerRef.current) return;
+		const container = containerRef.current;
+		if (!container) return;
 
 		const term = new Terminal({
 			theme: getTheme(),
@@ -40,7 +44,7 @@ function TerminalTab({ sessionId, visible, restored, scrollbackData }: TerminalT
 
 		const fit = new FitAddon();
 		term.loadAddon(fit);
-		term.open(containerRef.current);
+		term.open(container);
 		fitRef.current = fit;
 
 		const unicode11 = new Unicode11Addon();
@@ -76,6 +80,31 @@ function TerminalTab({ sessionId, visible, restored, scrollbackData }: TerminalT
 			term.write(scrollbackData);
 		}
 
+		const getSelection = () => {
+			const selection = term.getSelection();
+			return selection.length > 0 ? selection : null;
+		};
+
+		const copySelection = async () => {
+			const selection = getSelection();
+			if (!selection) return;
+			try {
+				window.api.writeClipboardText(selection);
+			} catch (error) {
+				console.error("Failed to copy terminal selection:", error);
+			}
+		};
+
+		const pasteClipboard = async () => {
+			try {
+				const text = window.api.readClipboardText();
+				if (!text) return;
+				term.paste(text);
+			} catch (error) {
+				console.error("Failed to paste into terminal:", error);
+			}
+		};
+
 		// Shift+Enter: inject a CSI u escape sequence directly into the
 		// tmux pane (via send-keys -l) so TUI apps like Claude Code can
 		// detect the shift modifier. The normal ptyWrite path goes through
@@ -89,13 +118,87 @@ function TerminalTab({ sessionId, visible, restored, scrollbackData }: TerminalT
 				}
 				return false;
 			}
-        if (e.type === "keydown" && (e.metaKey || e.ctrlKey)) {
-          if (e.key === "t" || (e.key >= "1" && e.key <= "9")) {
-            return false;
-          }
+			if (e.type === "keydown") {
+				const key = e.key.toLowerCase();
+				const isMetaShortcut =
+					IS_MAC &&
+					e.metaKey &&
+					!e.ctrlKey &&
+					!e.altKey;
+				const isCtrlShortcut =
+					!IS_MAC &&
+					e.ctrlKey &&
+					!e.metaKey &&
+					!e.altKey &&
+					!e.shiftKey;
+				const isCtrlInsert =
+					!IS_MAC &&
+					e.ctrlKey &&
+					!e.metaKey &&
+					!e.altKey &&
+					key === "insert";
+				if (e.ctrlKey && e.shiftKey && !e.metaKey && !e.altKey) {
+					if (key === "c") {
+						void copySelection();
+						return false;
+					}
+					if (key === "v") {
+						void pasteClipboard();
+						return false;
+					}
+				}
+				if (key === "c") {
+					if (isMetaShortcut) {
+						void copySelection();
+						return false;
+					}
+					if (isCtrlShortcut && getSelection()) {
+						void copySelection();
+						return false;
+					}
+				}
+				if (key === "v" && (isMetaShortcut || isCtrlShortcut)) {
+					void pasteClipboard();
+					return false;
+				}
+				if (!IS_MAC && e.shiftKey && key === "insert") {
+					void pasteClipboard();
+					return false;
+				}
+				if (isCtrlInsert) {
+					void copySelection();
+					return false;
+				}
+				if (e.metaKey || e.ctrlKey) {
+					if (key === "t" || (key >= "1" && key <= "9")) {
+						return false;
+					}
+				}
 			}
 			return true;
 		});
+
+		const handleCopy = (event: ClipboardEvent) => {
+			const selection = getSelection();
+			if (!selection) return;
+			event.preventDefault();
+			event.stopPropagation();
+			event.clipboardData?.setData("text/plain", selection);
+			window.api.writeClipboardText(selection);
+		};
+
+		const handlePaste = (event: ClipboardEvent) => {
+			const text =
+				event.clipboardData?.getData("text/plain") ??
+				window.api.readClipboardText();
+			if (!text) return;
+			event.preventDefault();
+			event.stopPropagation();
+			term.paste(text);
+		};
+
+		container.addEventListener("copy", handleCopy, true);
+		container.addEventListener("paste", handlePaste, true);
 
 		term.onData((data: string) => {
 			window.api.ptyWrite(sessionId, data);
@@ -158,7 +261,7 @@ function TerminalTab({ sessionId, visible, restored, scrollbackData }: TerminalT
 				rafId = requestAnimationFrame(() => fit.fit());
 			}
 		});
-		resizeObserver.observe(containerRef.current);
+		resizeObserver.observe(container);
 
 		const mediaQuery = window.matchMedia(
 			"(prefers-color-scheme: dark)",
@@ -176,6 +279,8 @@ function TerminalTab({ sessionId, visible, restored, scrollbackData }: TerminalT
 			cancelAnimationFrame(rafId);
 			mediaQuery.removeEventListener("change", onThemeChange);
 			resizeObserver.disconnect();
+			container.removeEventListener("copy", handleCopy, true);
+			container.removeEventListener("paste", handlePaste, true);
 			window.api.offPtyData(handleData);
 			offShellBlur();
 			term.dispose();

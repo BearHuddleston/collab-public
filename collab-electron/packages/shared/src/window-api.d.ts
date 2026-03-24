@@ -114,6 +114,8 @@ export interface CollabApi {
 
   // Theme
   setTheme: (mode: string) => Promise<void>;
+  readClipboardText: () => string;
+  writeClipboardText: (text: string) => void;
 
   // File selection
   getSelectedFile: () => Promise<string | null>;
