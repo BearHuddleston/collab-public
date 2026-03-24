@@ -609,6 +609,12 @@ ipcMain.handle(
 );
 
 ipcMain.handle(
+  "pty:clean-detached",
+  (_event, activeSessionIds: string[]) =>
+    pty.cleanDetachedSessions(activeSessionIds),
+);
+
+ipcMain.handle(
   "pty:foreground-process",
   (_event, sessionId: string) => pty.getForegroundProcess(sessionId),
 );

@@ -6,6 +6,7 @@ import { type IDisposable } from "node-pty";
 import {
   getTmuxBin,
   getTerminfoDir,
+  getSocketName,
   tmuxExec,
   tmuxSessionName,
   writeSessionMeta,
@@ -73,7 +74,7 @@ function attachClient(
 
   const ptyProcess = pty.spawn(
     tmuxBin,
-    ["-L", "collab", "-u", "attach-session", "-t", name],
+    ["-L", getSocketName(), "-u", "attach-session", "-t", name],
     { name: "xterm-256color", cols, rows, env: utf8Env() },
   );
 
@@ -443,6 +444,39 @@ export function clearForegroundCache(sessionId: string): void {
   if (timer) {
     clearTimeout(timer);
     statusTimers.delete(sessionId);
+  }
+}
+
+function getAttachedSessionNames(): Set<string> {
+  try {
+    const raw = tmuxExec(
+      "list-sessions", "-F",
+      "#{session_name}:#{session_attached}",
+    );
+    const attached = new Set<string>();
+    for (const line of raw.split("\n").filter(Boolean)) {
+      const sep = line.lastIndexOf(":");
+      const name = line.slice(0, sep);
+      const count = parseInt(line.slice(sep + 1), 10);
+      if (count > 0) attached.add(name);
+    }
+    return attached;
+  } catch {
+    return new Set();
+  }
+}
+
+export function cleanDetachedSessions(
+  activeSessionIds: string[],
+): void {
+  const active = new Set(activeSessionIds);
+  const attached = getAttachedSessionNames();
+  const discovered = discoverSessions();
+
+  for (const { sessionId } of discovered) {
+    if (active.has(sessionId)) continue;
+    if (attached.has(tmuxSessionName(sessionId))) continue;
+    killSession(sessionId);
   }
 }
 

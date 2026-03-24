@@ -246,4 +246,6 @@ contextBridge.exposeInMainWorld("shellApi", {
   },
 
   ptyDiscover: () => ipcRenderer.invoke("pty:discover"),
+  ptyCleanDetached: (activeSessionIds: string[]) =>
+    ipcRenderer.invoke("pty:clean-detached", activeSessionIds),
 });
