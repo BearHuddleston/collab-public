@@ -22,7 +22,8 @@ export function windowsPathToWslPath(path: string): string {
   if (!path || !isWindowsPath(path)) {
     return path;
   }
-  return wslExec("wslpath", "-a", "-u", path);
+  const normalized = path.replace(/\\/g, "/");
+  return wslExec("wslpath", "-a", "-u", normalized);
 }
 
 export function getWslShell(): string {

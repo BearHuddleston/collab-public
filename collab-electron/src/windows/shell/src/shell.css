@@ -45,7 +45,7 @@ html,
 body {
 	height: 100%;
 	overflow: hidden;
-	background: transparent;
+	background: var(--bg);
 	color: var(--fg);
 	font-family: var(--font-mono);
 	-webkit-font-smoothing: antialiased;
@@ -55,7 +55,7 @@ body {
 	display: flex;
 	flex-direction: column;
 	padding: 0;
-	background: transparent;
+	background: var(--bg);
 }
 
 /* ── Titlebar ── */
@@ -153,7 +153,12 @@ body {
 	min-width: 200px;
 	overflow: hidden;
 	position: relative;
-	background: rgba(var(--canvas-bg-rgb), var(--canvas-opacity));
+	background:
+		linear-gradient(
+			rgba(var(--canvas-bg-rgb), var(--canvas-opacity)),
+			rgba(var(--canvas-bg-rgb), var(--canvas-opacity))
+		),
+		var(--bg);
 	outline: none;
 }
 

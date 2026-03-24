@@ -9,12 +9,14 @@ import { join } from "node:path";
 import { homedir } from "node:os";
 import { COLLAB_DIR } from "./paths";
 
-const SOCKET_PATH = join(COLLAB_DIR, "ipc.sock");
 // Write the breadcrumb to the base directory (~/.collaborator/)
 // so the hook script can discover the socket regardless of
 // whether the app is running in dev or prod mode.
 const BASE_DIR = join(homedir(), ".collaborator");
 const SOCKET_PATH_FILE = join(BASE_DIR, "socket-path");
+const SOCKET_PATH = process.platform === "win32"
+  ? `\\\\.\\pipe\\collaborator-${import.meta.env.DEV ? "dev" : "prod"}-json-rpc`
+  : join(COLLAB_DIR, "ipc.sock");
 
 type MethodHandler = (
   params: unknown,
@@ -143,6 +145,9 @@ function handleConnection(socket: Socket): void {
 }
 
 function cleanupStaleSocket(): void {
+  if (process.platform === "win32") {
+    return;
+  }
   if (existsSync(SOCKET_PATH)) {
     try {
       unlinkSync(SOCKET_PATH);
@@ -167,6 +172,7 @@ export function registerMethod(
 export function startJsonRpcServer(): Promise<void> {
   return new Promise((resolve, reject) => {
     mkdirSync(COLLAB_DIR, { recursive: true });
+    mkdirSync(BASE_DIR, { recursive: true });
     cleanupStaleSocket();
 
     server = createServer(handleConnection);
