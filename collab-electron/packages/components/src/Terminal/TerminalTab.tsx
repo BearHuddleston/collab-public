@@ -16,6 +16,42 @@ const IS_MAC =
 	typeof navigator !== "undefined" &&
 	/Mac|iPhone|iPad|iPod/.test(navigator.platform);
 
+function createKeyEventHandler(
+	sessionId: string,
+	getSelection: () => string | null,
+	copySelection: () => void,
+	pasteClipboard: () => void,
+): (e: KeyboardEvent) => boolean {
+	return (e) => {
+		if (e.key === "Enter" && e.shiftKey) {
+			if (e.type === "keydown") {
+				window.api.ptySendRawKeys(sessionId, "\x1b[13;2u");
+			}
+			return false;
+		}
+		if (e.type !== "keydown") return true;
+
+		const key = e.key.toLowerCase();
+		const isMetaShortcut = IS_MAC && e.metaKey && !e.ctrlKey && !e.altKey;
+		const isCtrlShortcut = !IS_MAC && e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey;
+
+		if (e.ctrlKey && e.shiftKey && !e.metaKey && !e.altKey) {
+			if (key === "c") { copySelection(); return false; }
+			if (key === "v") { pasteClipboard(); return false; }
+		}
+		if (key === "c") {
+			if (isMetaShortcut) { copySelection(); return false; }
+			if (isCtrlShortcut && getSelection()) { copySelection(); return false; }
+		}
+		if (key === "v" && (isMetaShortcut || isCtrlShortcut)) { pasteClipboard(); return false; }
+		if (!IS_MAC && e.shiftKey && key === "insert") { pasteClipboard(); return false; }
+		if (!IS_MAC && e.ctrlKey && !e.metaKey && !e.altKey && key === "insert") { copySelection(); return false; }
+		if ((e.metaKey || e.ctrlKey) && (key === "t" || (key >= "1" && key <= "9"))) return false;
+
+		return true;
+	};
+}
+
 interface TerminalTabProps {
 	sessionId: string;
 	visible: boolean;
@@ -124,72 +160,9 @@ function TerminalTab({ sessionId, visible, restored, scrollbackData }: TerminalT
 		// tmux's input parser which strips modifier info in legacy mode.
 		// Block both keydown AND keypress to prevent xterm from also
 		// sending \r through the normal onData path.
-		term.attachCustomKeyEventHandler((e) => {
-			if (e.key === "Enter" && e.shiftKey) {
-				if (e.type === "keydown") {
-					window.api.ptySendRawKeys(sessionId, "\x1b[13;2u");
-				}
-				return false;
-			}
-			if (e.type === "keydown") {
-				const key = e.key.toLowerCase();
-				const isMetaShortcut =
-					IS_MAC &&
-					e.metaKey &&
-					!e.ctrlKey &&
-					!e.altKey;
-				const isCtrlShortcut =
-					!IS_MAC &&
-					e.ctrlKey &&
-					!e.metaKey &&
-					!e.altKey &&
-					!e.shiftKey;
-				const isCtrlInsert =
-					!IS_MAC &&
-					e.ctrlKey &&
-					!e.metaKey &&
-					!e.altKey &&
-					key === "insert";
-				if (e.ctrlKey && e.shiftKey && !e.metaKey && !e.altKey) {
-					if (key === "c") {
-						void copySelection();
-						return false;
-					}
-					if (key === "v") {
-						void pasteClipboard();
-						return false;
-					}
-				}
-				if (key === "c") {
-					if (isMetaShortcut) {
-						void copySelection();
-						return false;
-					}
-					if (isCtrlShortcut && getSelection()) {
-						void copySelection();
-						return false;
-					}
-				}
-				if (key === "v" && (isMetaShortcut || isCtrlShortcut)) {
-					void pasteClipboard();
-					return false;
-				}
-				if (!IS_MAC && e.shiftKey && key === "insert") {
-					void pasteClipboard();
-					return false;
-				}
-				if (isCtrlInsert) {
-					void copySelection();
-					return false;
-				}
-				if (e.metaKey || e.ctrlKey) {
-					if (key === "t" || (key >= "1" && key <= "9")) {
-						return false;
-					}
-				}
-			}
-			return true;
-		});
+		term.attachCustomKeyEventHandler(
+			createKeyEventHandler(sessionId, getSelection, copySelection, pasteClipboard),
+		);
 
 		const handleCopy = (event: ClipboardEvent) => {
 			const selection = getSelection();
