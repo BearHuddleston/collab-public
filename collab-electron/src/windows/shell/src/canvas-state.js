@@ -69,7 +69,7 @@ const IMAGE_EXTENSIONS = new Set([
 	".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp",
 ]);
 
-const GRID_CELL = 20;
+export const GRID_CELL = 20;
 
 /** Snap tile position and size to the minor grid. */
 export function snapToGrid(tile) {

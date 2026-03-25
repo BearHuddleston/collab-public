@@ -610,6 +610,12 @@ ipcMain.handle(
 );
 
 ipcMain.handle(
+  "pty:cwd",
+  (_event, { sessionId }: { sessionId: string }) =>
+    pty.getCurrentDirectory(sessionId),
+);
+
+ipcMain.handle(
   "pty:translate-path",
   (_event, { path }: { path: string }) =>
     pty.translatePathForTerminal(path),

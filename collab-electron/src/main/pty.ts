@@ -336,6 +336,12 @@ export function getForegroundProcess(
   return backend.getForegroundProcess(tmuxSessionName(sessionId));
 }
 
+export function getCurrentDirectory(
+  sessionId: string,
+): string | null {
+  return backend.getCurrentDirectory(tmuxSessionName(sessionId));
+}
+
 export function translatePathForTerminal(path: string): string {
   return backend.translatePath(path);
 }

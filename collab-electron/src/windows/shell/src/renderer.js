@@ -1,6 +1,6 @@
 import "./shell.css";
 import {
-	tiles, getTile, defaultSize, inferTileType,
+	tiles, getTile, defaultSize, inferTileType, GRID_CELL,
 	selectTile, clearSelection, getSelectedTiles,
 } from "./canvas-state.js";
 import { attachMarquee } from "./tile-interactions.js";
@@ -89,6 +89,8 @@ async function init() {
 	let spaceHeld = false;
 	let isPanning = false;
 	let suppressCanvasDblClickUntil = 0;
+	let copiedTerminalTiles = [];
+	let pendingTerminalTileCopy = null;
 
 	// -- Drag-and-drop handler (shared with webviews) --
 
@@ -188,6 +190,17 @@ async function init() {
 		},
 		onNoteSurfaceFocus: noteSurfaceFocus,
 		onFocusSurface: focusSurface,
+		onCanvasFrameFocus: () => {
+			canvasEl.focus();
+			noteSurfaceFocus("canvas");
+		},
+		onCanvasTileContextMenu: async (tileId) => {
+			const items = terminalTileClipboard.getMenuItems(tileId);
+			if (items.length === 0) return;
+
+			const selected = await window.shellApi.showContextMenu(items);
+			await terminalTileClipboard.handleMenuAction(selected, tileId);
+		},
 	});
 
 	// -- Edge indicators --
@@ -483,21 +496,223 @@ async function init() {
 				for (const id of ids) selectTile(id);
 			}
 			tileManager.syncSelectionVisuals();
-			if (ids.size === 0) {
-				tileManager.blurCanvasTileGuest();
-				tileManager.clearTileFocusRing();
-				tileManager.setFocusedTileId(null);
-				noteSurfaceFocus("canvas");
-			}
+			tileManager.blurCanvasTileGuest();
+			tileManager.clearTileFocusRing();
+			tileManager.setFocusedTileId(null);
+			canvasEl.focus();
+			noteSurfaceFocus("canvas");
 		},
 		isShiftHeld: () => shiftHeld,
 		isSpaceHeld: () => spaceHeld,
 		getAllWebviews,
 	});
 
+	function isEditableTarget(target) {
+		if (!(target instanceof HTMLElement)) return false;
+		if (target instanceof HTMLInputElement) return true;
+		if (target instanceof HTMLTextAreaElement) return true;
+		if (target instanceof HTMLSelectElement) return true;
+		return !!target.closest("[contenteditable]:not([contenteditable='false'])");
+	}
+
+	function createTerminalTileClipboard() {
+		function getSourceTiles(sourceTileId = null) {
+			const selected = getSelectedTiles();
+			if (sourceTileId) {
+				const sourceTile = getTile(sourceTileId);
+				if (sourceTile?.type !== "term") return [];
+				if (
+					selected.length > 0 &&
+					selected.every((tile) => tile.type === "term") &&
+					selected.some((tile) => tile.id === sourceTileId)
+				) {
+					return selected;
+				}
+				return [sourceTile];
+			}
+
+			if (selected.length > 0) {
+				return selected.every((tile) => tile.type === "term")
+					? selected
+					: [];
+			}
+
+			return [];
+		}
+
+		function formatActionLabel(action, count) {
+			return count === 1
+				? `${action} terminal tile`
+				: `${action} ${count} terminal tiles`;
+		}
+
+		function createBlueprint(tile) {
+			return {
+				x: tile.x,
+				y: tile.y,
+				width: tile.width,
+				height: tile.height,
+				cwd: tile.cwd,
+			};
+		}
+
+		function copyBlueprints(tilesToCopy) {
+			copiedTerminalTiles = tilesToCopy.map(createBlueprint);
+		}
+
+		async function refreshSourceTiles(sourceTiles) {
+			let changed = false;
+			await Promise.all(sourceTiles.map(async (tile) => {
+				if (tile.type !== "term" || !tile.ptySessionId) return;
+				try {
+					const cwd = await window.shellApi.ptyGetCwd(tile.ptySessionId);
+					if (cwd && cwd !== tile.cwd) {
+						tile.cwd = cwd;
+						changed = true;
+					}
+				} catch {
+					// Fall back to the last known tile cwd if the PTY is unavailable.
+				}
+			}));
+			if (changed) {
+				tileManager.saveCanvasDebounced();
+			}
+		}
+
+		function finalizePaste(duplicatedTiles) {
+			tileManager.blurCanvasTileGuest();
+			tileManager.setFocusedTileId(null);
+			tileManager.clearTileFocusRing();
+			tileManager.syncSelectionVisuals();
+			tileManager.saveCanvasImmediate();
+			canvasEl.focus();
+			noteSurfaceFocus("canvas");
+			copyBlueprints(duplicatedTiles);
+		}
+
+		async function copy(sourceTileId = null) {
+			if (isEditableTarget(document.activeElement)) return false;
+			const sourceTiles = getSourceTiles(sourceTileId);
+			if (sourceTiles.length === 0) return false;
+			await refreshSourceTiles(sourceTiles);
+			copyBlueprints(sourceTiles);
+			return true;
+		}
+
+		function runCopy(sourceTileId = null) {
+			const copyPromise = copy(sourceTileId);
+			pendingTerminalTileCopy = copyPromise.finally(() => {
+				if (pendingTerminalTileCopy === copyPromise) {
+					pendingTerminalTileCopy = null;
+				}
+			});
+			return copyPromise;
+		}
+
+		function pasteNow() {
+			if (copiedTerminalTiles.length === 0) return false;
+
+			const duplicatedTiles = [];
+			clearSelection();
+
+			for (const blueprint of copiedTerminalTiles) {
+				const tile = tileManager.createCanvasTile(
+					"term",
+					blueprint.x + blueprint.width + GRID_CELL,
+					blueprint.y,
+					{
+						width: blueprint.width,
+						height: blueprint.height,
+						cwd: blueprint.cwd,
+					},
+				);
+				duplicatedTiles.push(tile);
+				tileManager.spawnTerminalWebview(tile, false);
+				selectTile(tile.id);
+			}
+
+			finalizePaste(duplicatedTiles);
+			return true;
+		}
+
+		async function paste() {
+			if (pendingTerminalTileCopy) {
+				const copied = await pendingTerminalTileCopy;
+				if (!copied) return false;
+			}
+			if (isEditableTarget(document.activeElement)) return false;
+			return pasteNow();
+		}
+
+		return {
+			getMenuItems(tileId) {
+				const sourceTiles = getSourceTiles(tileId);
+				const items = [];
+				if (sourceTiles.length > 0) {
+					items.push({
+						id: "copy-terminal-tiles",
+						label: formatActionLabel("Copy", sourceTiles.length),
+					});
+					items.push({
+						id: "duplicate-terminal-tiles",
+						label: formatActionLabel("Duplicate", sourceTiles.length),
+					});
+				}
+				if (copiedTerminalTiles.length > 0) {
+					items.push({
+						id: "paste-terminal-tiles",
+						label: formatActionLabel("Paste", copiedTerminalTiles.length),
+					});
+				}
+				return items;
+			},
+			async handleMenuAction(action, tileId) {
+				if (action === "copy-terminal-tiles") {
+					await runCopy(tileId);
+					return;
+				}
+				if (action === "duplicate-terminal-tiles") {
+					if (await runCopy(tileId)) {
+						pasteNow();
+					}
+					return;
+				}
+				if (action === "paste-terminal-tiles") {
+					await paste();
+				}
+			},
+			runCopy,
+			paste,
+		};
+	}
+
+	const terminalTileClipboard = createTerminalTileClipboard();
+
 	// -- Selection keyboard handlers --
 
 	window.addEventListener("keydown", (e) => {
+		const hasCommandModifier = e.metaKey || e.ctrlKey;
+		if (
+			hasCommandModifier &&
+			!e.shiftKey &&
+			!e.altKey &&
+			!isEditableTarget(e.target)
+		) {
+			const key = e.key.toLowerCase();
+			if (key === "c") {
+				e.preventDefault();
+				e.stopPropagation();
+				void terminalTileClipboard.runCopy();
+				return;
+			}
+			if (key === "v") {
+				e.preventDefault();
+				e.stopPropagation();
+				void terminalTileClipboard.paste();
+				return;
+			}
+		}
+
 		if (e.key === "Escape" && getSelectedTiles().length > 0) {
 			clearSelection();
 			tileManager.syncSelectionVisuals();
@@ -506,8 +721,7 @@ async function init() {
 
 		if (
 			(e.key === "Backspace" || e.key === "Delete") &&
-			(activeSurface === "canvas" ||
-				activeSurface === "canvas-tile")
+			!isEditableTarget(e.target)
 		) {
 			const selected = getSelectedTiles();
 			if (selected.length === 0) return;
@@ -528,7 +742,7 @@ async function init() {
 				tileManager.syncSelectionVisuals();
 			});
 		}
-	});
+	}, true);
 
 	// -- Shift scroll passthrough --
 

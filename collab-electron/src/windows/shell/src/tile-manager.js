@@ -22,6 +22,8 @@ export function createTileManager({
 	getAllWebviews, isSpaceHeld,
 	onSaveDebounced, onSaveImmediate,
 	onNoteSurfaceFocus, onFocusSurface,
+	onCanvasFrameFocus,
+	onCanvasTileContextMenu,
 }) {
 	/** @type {Map<string, {container: HTMLElement, contentArea: HTMLElement, titleText: HTMLElement, webview?: HTMLElement}>} */
 	const tileDOMs = new Map();
@@ -50,6 +52,7 @@ export function createTileManager({
 				filePath: t.filePath,
 				folderPath: t.folderPath,
 				workspacePath: t.workspacePath,
+				cwd: t.cwd,
 				ptySessionId: t.ptySessionId,
 				url: t.url,
 				zIndex: t.zIndex,
@@ -201,6 +204,14 @@ export function createTileManager({
 			if (event.channel === "pty-session-id") {
 				tile.ptySessionId = event.args[0];
 				saveCanvasDebounced();
+				return;
+			}
+			if (event.channel === "pty-cwd") {
+				const cwd = event.args[0];
+				if (cwd && cwd !== tile.cwd) {
+					tile.cwd = cwd;
+					saveCanvasDebounced();
+				}
 			}
 		});
 	}
@@ -412,9 +423,34 @@ export function createTileManager({
 					syncSelectionVisuals();
 					return;
 				}
+				const tile = getTile(id);
+				if (tile) {
+					bringToFront(tile);
+					repositionAllTiles();
+				}
 				clearSelection();
+				selectTile(id);
 				syncSelectionVisuals();
-				focusCanvasTile(id, e);
+				blurCanvasTileGuest();
+				clearTileFocusRing();
+				focusedTileId = null;
+				onCanvasFrameFocus();
+			},
+			onContextMenu: (id, e) => {
+				if (e) {
+					e.preventDefault();
+					e.stopPropagation();
+				}
+				if (!isSelected(id)) {
+					clearSelection();
+					selectTile(id);
+					syncSelectionVisuals();
+				}
+				blurCanvasTileGuest();
+				clearTileFocusRing();
+				focusedTileId = null;
+				onCanvasFrameFocus();
+				onCanvasTileContextMenu?.(id);
 			},
 			onOpenInViewer: (id) => {
 				const t = getTile(id);
@@ -581,6 +617,7 @@ export function createTileManager({
 						width: saved.width,
 						height: saved.height,
 						zIndex: saved.zIndex,
+						cwd: saved.cwd,
 						ptySessionId: saved.ptySessionId,
 					},
 				);

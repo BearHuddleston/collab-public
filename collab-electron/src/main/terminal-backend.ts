@@ -14,6 +14,14 @@ import {
 
 const SOCKET_NAME = "collab";
 
+function shellQuote(value: string): string {
+  return `'${value.replace(/'/g, `'\\''`)}'`;
+}
+
+function shellQuoteArgs(args: string[]): string {
+  return args.map(shellQuote).join(" ");
+}
+
 export interface TerminalBackend {
   kind: "local-tmux" | "wsl-tmux";
   getDefaultShell(): string;
@@ -43,6 +51,7 @@ export interface TerminalBackend {
   listSessionNames(): string[];
   verifyAvailable(): void;
   getForegroundProcess(sessionName: string): string | null;
+  getCurrentDirectory(sessionName: string): string | null;
   translatePath(path: string): string;
 }
 
@@ -67,6 +76,65 @@ function localHasSession(sessionName: string): boolean {
   }
 }
 
+function localTmuxDisplayMessage(
+  sessionName: string,
+  format: string,
+): string {
+  return tmuxExec(
+    "display-message",
+    "-p",
+    "-t",
+    sessionName,
+    format,
+  );
+}
+
+function sessionEnvironmentCommands(
+  sessionName: string,
+  shell: string,
+): string[][] {
+  return [
+    [
+      "set-environment",
+      "-t",
+      sessionName,
+      "COLLAB_PTY_SESSION_ID",
+      sessionName.replace(/^collab-/, ""),
+    ],
+    [
+      "set-environment",
+      "-t",
+      sessionName,
+      "SHELL",
+      shell,
+    ],
+  ];
+}
+
+function createSessionCommands(
+  sessionName: string,
+  cwd: string,
+  shell: string,
+  cols: number,
+  rows: number,
+): string[][] {
+  return [
+    [
+      "new-session",
+      "-d",
+      "-s",
+      sessionName,
+      "-c",
+      cwd,
+      "-x",
+      String(cols),
+      "-y",
+      String(rows),
+    ],
+    ...sessionEnvironmentCommands(sessionName, shell),
+  ];
+}
+
 const localBackend: TerminalBackend = {
   kind: "local-tmux",
   getDefaultShell() {
@@ -88,32 +156,15 @@ const localBackend: TerminalBackend = {
     );
   },
   createSession(sessionName, cwd, shell, cols, rows) {
-    tmuxExec(
-      "new-session",
-      "-d",
-      "-s",
+    for (const args of createSessionCommands(
       sessionName,
-      "-c",
       cwd,
-      "-x",
-      String(cols),
-      "-y",
-      String(rows),
-    );
-    tmuxExec(
-      "set-environment",
-      "-t",
-      sessionName,
-      "COLLAB_PTY_SESSION_ID",
-      sessionName.replace(/^collab-/, ""),
-    );
-    tmuxExec(
-      "set-environment",
-      "-t",
-      sessionName,
-      "SHELL",
       shell,
-    );
+      cols,
+      rows,
+    )) {
+      tmuxExec(...args);
+    }
   },
   hasSession(sessionName) {
     return localHasSession(sessionName);
@@ -162,12 +213,19 @@ const localBackend: TerminalBackend = {
   },
   getForegroundProcess(sessionName) {
     try {
-      return tmuxExec(
-        "display-message",
-        "-p",
-        "-t",
+      return localTmuxDisplayMessage(
         sessionName,
         "#{pane_current_command}",
+      );
+    } catch {
+      return null;
+    }
+  },
+  getCurrentDirectory(sessionName) {
+    try {
+      return localTmuxDisplayMessage(
+        sessionName,
+        "#{pane_current_path}",
       );
     } catch {
       return null;
@@ -180,6 +238,39 @@ const localBackend: TerminalBackend = {
 
 function wslTmuxExec(...args: string[]): string {
   return wslExec("tmux", "-L", SOCKET_NAME, "-u", ...args);
+}
+
+function wslTmuxCommand(...args: string[]): string {
+  return shellQuoteArgs([
+    "tmux",
+    "-L",
+    SOCKET_NAME,
+    "-u",
+    ...args,
+  ]);
+}
+
+function wslTmuxShellExec(commands: string[][]): string {
+  return wslExec(
+    "sh",
+    "-lc",
+    commands.map((args) => wslTmuxCommand(...args)).join(" && "),
+  );
+}
+
+function wslTmuxDisplayMessage(
+  sessionName: string,
+  format: string,
+): string {
+  return wslTmuxShellExec([
+    [
+      "display-message",
+      "-p",
+      "-t",
+      sessionName,
+      format,
+    ],
+  ]);
 }
 
 function wslHasSession(sessionName: string): boolean {
@@ -226,31 +317,14 @@ const wslBackend: TerminalBackend = {
     });
   },
   createSession(sessionName, cwd, shell, cols, rows) {
-    wslTmuxExec(
-      "new-session",
-      "-d",
-      "-s",
-      sessionName,
-      "-c",
-      cwd,
-      "-x",
-      String(cols),
-      "-y",
-      String(rows),
-    );
-    wslTmuxExec(
-      "set-environment",
-      "-t",
-      sessionName,
-      "COLLAB_PTY_SESSION_ID",
-      sessionName.replace(/^collab-/, ""),
-    );
-    wslTmuxExec(
-      "set-environment",
-      "-t",
-      sessionName,
-      "SHELL",
-      shell,
+    wslTmuxShellExec(
+      createSessionCommands(
+        sessionName,
+        cwd,
+        shell,
+        cols,
+        rows,
+      ),
     );
   },
   hasSession(sessionName) {
@@ -300,12 +374,19 @@ const wslBackend: TerminalBackend = {
   },
   getForegroundProcess(sessionName) {
     try {
-      return wslTmuxExec(
-        "display-message",
-        "-p",
-        "-t",
+      return wslTmuxDisplayMessage(
         sessionName,
         "#{pane_current_command}",
+      );
+    } catch {
+      return null;
+    }
+  },
+  getCurrentDirectory(sessionName) {
+    try {
+      return wslTmuxDisplayMessage(
+        sessionName,
+        "#{pane_current_path}",
       );
     } catch {
       return null;

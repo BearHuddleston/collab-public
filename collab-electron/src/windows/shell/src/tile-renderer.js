@@ -4,6 +4,7 @@
  * @param {object} callbacks
  * @param {(id: string) => void} callbacks.onClose
  * @param {(id: string, e?: MouseEvent) => void} callbacks.onFocus
+ * @param {((id: string, e: MouseEvent) => void)|null} [callbacks.onContextMenu]
  * @param {((id: string) => void)|null} [callbacks.onOpenInViewer]
  * @param {((id: string, url: string) => void)|null} [callbacks.onNavigate]
  */
@@ -12,6 +13,10 @@ export function createTileDOM(tile, callbacks) {
   container.className = "canvas-tile";
   container.dataset.tileId = tile.id;
   container.dataset.tileType = tile.type;
+  container.addEventListener("contextmenu", (e) => {
+    if (!callbacks.onContextMenu) return;
+    callbacks.onContextMenu(tile.id, e);
+  });
 
   const titleBar = document.createElement("div");
   titleBar.className = "tile-title-bar";

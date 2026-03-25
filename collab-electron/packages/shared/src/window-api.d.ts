@@ -226,6 +226,9 @@ export interface CollabApi {
   ptyForegroundProcess: (
     sessionId: string,
   ) => Promise<string | null>;
+  ptyGetCwd: (
+    sessionId: string,
+  ) => Promise<string | null>;
   ptyTranslatePath: (path: string) => Promise<string>;
   ptyDiscover: () => Promise<
     Array<{

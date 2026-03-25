@@ -1,5 +1,5 @@
-import { readFile, writeFile, rename, mkdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
+import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import * as crypto from "node:crypto";
 import { COLLAB_DIR } from "./paths";
@@ -32,6 +32,21 @@ interface CanvasState {
   };
 }
 
+const RENAME_RETRY_DELAYS_MS = [10, 30, 75];
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isWindowsRenamePermissionError(error: unknown): boolean {
+  return (
+    process.platform === "win32" &&
+    error instanceof Error &&
+    "code" in error &&
+    error.code === "EPERM"
+  );
+}
+
 export async function loadState(): Promise<CanvasState | null> {
   try {
     const raw = await readFile(STATE_FILE, "utf-8");
@@ -53,5 +68,30 @@ export async function saveState(state: CanvasState): Promise<void> {
   );
   const json = JSON.stringify(state, null, 2);
   await writeFile(tmp, json, "utf-8");
-  await rename(tmp, STATE_FILE);
+  try {
+    await rename(tmp, STATE_FILE);
+    return;
+  } catch (error) {
+    if (!isWindowsRenamePermissionError(error)) {
+      throw error;
+    }
+  }
+
+  for (const delayMs of RENAME_RETRY_DELAYS_MS) {
+    await sleep(delayMs);
+    try {
+      await rm(STATE_FILE, { force: true });
+      await rename(tmp, STATE_FILE);
+      return;
+    } catch (error) {
+      if (!isWindowsRenamePermissionError(error)) {
+        throw error;
+      }
+    }
+  }
+
+  // Last-resort fallback for Windows lock contention: write directly
+  // to the target file instead of failing the UI action.
+  await writeFile(STATE_FILE, json, "utf-8");
+  await rm(tmp, { force: true });
 }
