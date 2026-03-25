@@ -37,3 +37,4 @@ jobs:
             before we can accept your contribution. You can sign the CLA by posting
             a Pull Request comment in the below format.
           lock-pullrequest-aftermerge: false
+          signed-commit-message: "chore(legal): @$contributorName has signed the CLA"
