@@ -401,6 +401,20 @@ export function getForegroundProcess(
   }
 }
 
+export function getCurrentDirectory(
+  sessionId: string,
+): string | null {
+  const name = tmuxSessionName(sessionId);
+  try {
+    return tmuxExec(
+      "display-message", "-t", name,
+      "-p", "#{pane_current_path}",
+    );
+  } catch {
+    return null;
+  }
+}
+
 const lastForeground = new Map<string, string>();
 const statusTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const STATUS_DEBOUNCE_MS = 500;

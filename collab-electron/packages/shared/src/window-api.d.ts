@@ -223,6 +223,9 @@ export interface CollabApi {
     cols: number,
     rows: number,
   ) => Promise<PtySession & { scrollback: string }>;
+  ptyGetCwd: (
+    sessionId: string,
+  ) => Promise<string | null>;
   ptyDiscover: () => Promise<
     Array<{
       sessionId: string;

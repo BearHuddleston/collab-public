@@ -597,6 +597,12 @@ ipcMain.handle(
   (_event, sessionId: string) => pty.getForegroundProcess(sessionId),
 );
 
+ipcMain.handle(
+  "pty:cwd",
+  (_event, { sessionId }: { sessionId: string }) =>
+    pty.getCurrentDirectory(sessionId),
+);
+
 let settingsOpen = false;
 
 function setSettingsOpen(open: boolean): void {

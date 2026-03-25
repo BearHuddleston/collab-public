@@ -238,6 +238,8 @@ contextBridge.exposeInMainWorld("api", {
       "pty:reconnect",
       { sessionId, cols, rows },
     ),
+  ptyGetCwd: (sessionId: string) =>
+    ipcRenderer.invoke("pty:cwd", { sessionId }),
   ptyDiscover: () =>
     ipcRenderer.invoke("pty:discover"),
   ptyCleanDetached: (activeSessionIds: string[]) =>

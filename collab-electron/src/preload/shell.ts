@@ -149,6 +149,8 @@ contextBridge.exposeInMainWorld("shellApi", {
   canvasLoadState: () => ipcRenderer.invoke("canvas:load-state"),
   canvasSaveState: (state: unknown) =>
     ipcRenderer.invoke("canvas:save-state", state),
+  ptyGetCwd: (sessionId: string) =>
+    ipcRenderer.invoke("pty:cwd", { sessionId }),
 
   getDragPaths: () => ipcRenderer.invoke("drag:get-paths"),
 
