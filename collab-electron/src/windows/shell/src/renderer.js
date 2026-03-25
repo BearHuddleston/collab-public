@@ -110,6 +110,12 @@ async function init() {
 	let isPanning = false;
 	let suppressCanvasDblClickUntil = 0;
 
+	// Cache iTerm2 availability at startup
+	let iterm2Available = false;
+	window.shellApi.isITerm2Available().then((v) => {
+		iterm2Available = v;
+	}).catch(() => {});
+
 	// -- Drag-and-drop handler (shared with webviews) --
 
 	function handleDndMessage(channel) {
@@ -476,10 +482,15 @@ async function init() {
 		const cx = (screenX - viewportState.panX) / viewportState.zoom;
 		const cy = (screenY - viewportState.panY) / viewportState.zoom;
 
-		const selected = await window.shellApi.showContextMenu([
+		const menuItems = [
 			{ id: "new-terminal", label: "New terminal tile" },
 			{ id: "new-browser", label: "New browser tile" },
-		]);
+		];
+		if (iterm2Available) {
+			menuItems.push({ id: "open-iterm2", label: "Open in iTerm2" });
+		}
+
+		const selected = await window.shellApi.showContextMenu(menuItems);
 
 		if (selected === "new-terminal") {
 			const ws = workspaceManager.getActiveWorkspace();
@@ -495,6 +506,12 @@ async function init() {
 			);
 			tileManager.spawnBrowserWebview(tile, true);
 			tileManager.saveCanvasImmediate();
+		} else if (selected === "open-iterm2") {
+			const ws = workspaceManager.getActiveWorkspace();
+			const cwd = ws ? ws.path : undefined;
+			window.shellApi.openInITerm2(cwd).catch((err) => {
+				console.error("[renderer] Failed to open iTerm2:", err);
+			});
 		}
 	});
 

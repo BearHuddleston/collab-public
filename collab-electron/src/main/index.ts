@@ -14,6 +14,7 @@ import {
   type WebContents,
 } from "electron";
 import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
@@ -35,6 +36,7 @@ import * as watcher from "./watcher";
 import * as gitReplay from "./git-replay";
 import { DISABLE_GIT_REPLAY } from "@collab/shared/replay-types";
 import * as pty from "./pty";
+import { isITerm2Available, openInITerm2 } from "./external-terminal";
 import { updateManager, setupUpdateIPC } from "./updater";
 import {
   initMainAnalytics,
@@ -604,6 +606,29 @@ ipcMain.handle(
     const killed = pty.cleanupOrphanedClients(knownSessionIds);
     pty.cleanStaleSessionMeta();
     return killed;
+  },
+);
+
+ipcMain.handle(
+  "terminal:is-iterm2-available",
+  () => isITerm2Available(),
+);
+
+ipcMain.handle(
+  "terminal:open-in-iterm2",
+  async (_event, params?: { cwd?: string }) => {
+    const cwd =
+      typeof params?.cwd === "string" && existsSync(params.cwd)
+        ? params.cwd
+        : undefined;
+    const { sessionId, sessionName } = pty.createDetachedSession(cwd);
+    try {
+      await openInITerm2(sessionName);
+    } catch (err) {
+      pty.killSession(sessionId);
+      throw err;
+    }
+    return { sessionId, sessionName };
   },
 );
 
