@@ -124,6 +124,13 @@ export function createTileManager({
 		try { dom.webview.blur(); } catch { /* noop */ }
 	}
 
+	function resetFocusToCanvas() {
+		blurCanvasTileGuest();
+		clearTileFocusRing();
+		focusedTileId = null;
+		onCanvasFrameFocus();
+	}
+
 	function forwardClickToWebview(webview, mouseEvent) {
 		const rect = webview.getBoundingClientRect();
 		if (rect.width === 0 || rect.height === 0) return;
@@ -444,10 +451,7 @@ export function createTileManager({
 				clearSelection();
 				selectTile(id);
 				syncSelectionVisuals();
-				blurCanvasTileGuest();
-				clearTileFocusRing();
-				focusedTileId = null;
-				onCanvasFrameFocus();
+				resetFocusToCanvas();
 			},
 			onContextMenu: (id, e) => {
 				if (e) {
@@ -459,10 +463,7 @@ export function createTileManager({
 					selectTile(id);
 					syncSelectionVisuals();
 				}
-				blurCanvasTileGuest();
-				clearTileFocusRing();
-				focusedTileId = null;
-				onCanvasFrameFocus();
+				resetFocusToCanvas();
 				onCanvasTileContextMenu?.(id);
 			},
 			onOpenInViewer: (id) => {
