@@ -52,6 +52,68 @@ function createKeyEventHandler(
 	};
 }
 
+function attachClipboardHandlers(
+	term: Terminal,
+	container: HTMLDivElement,
+	sessionId: string,
+): () => void {
+	const getSelection = () => {
+		const selection = term.getSelection();
+		return selection.length > 0 ? selection : null;
+	};
+
+	const copySelection = () => {
+		const selection = getSelection();
+		if (!selection) return;
+		try {
+			window.api.writeClipboardText(selection);
+		} catch (error) {
+			console.error("Failed to copy terminal selection:", error);
+		}
+	};
+
+	const pasteClipboard = () => {
+		try {
+			const text = window.api.readClipboardText();
+			if (!text) return;
+			term.paste(text);
+		} catch (error) {
+			console.error("Failed to paste into terminal:", error);
+		}
+	};
+
+	term.attachCustomKeyEventHandler(
+		createKeyEventHandler(sessionId, getSelection, copySelection, pasteClipboard),
+	);
+
+	const handleCopy = (event: ClipboardEvent) => {
+		const selection = getSelection();
+		if (!selection) return;
+		event.preventDefault();
+		event.stopPropagation();
+		event.clipboardData?.setData("text/plain", selection);
+		window.api.writeClipboardText(selection);
+	};
+
+	const handlePaste = (event: ClipboardEvent) => {
+		const text =
+			event.clipboardData?.getData("text/plain") ??
+			window.api.readClipboardText();
+		if (!text) return;
+		event.preventDefault();
+		event.stopPropagation();
+		term.paste(text);
+	};
+
+	container.addEventListener("copy", handleCopy, true);
+	container.addEventListener("paste", handlePaste, true);
+
+	return () => {
+		container.removeEventListener("copy", handleCopy, true);
+		container.removeEventListener("paste", handlePaste, true);
+	};
+}
+
 interface TerminalTabProps {
 	sessionId: string;
 	visible: boolean;
@@ -129,62 +191,13 @@ function TerminalTab({ sessionId, visible, restored, scrollbackData }: TerminalT
 			term.write(scrollbackData);
 		}
 
-		const getSelection = () => {
-			const selection = term.getSelection();
-			return selection.length > 0 ? selection : null;
-		};
-
-		const copySelection = () => {
-			const selection = getSelection();
-			if (!selection) return;
-			try {
-				window.api.writeClipboardText(selection);
-			} catch (error) {
-				console.error("Failed to copy terminal selection:", error);
-			}
-		};
-
-		const pasteClipboard = () => {
-			try {
-				const text = window.api.readClipboardText();
-				if (!text) return;
-				term.paste(text);
-			} catch (error) {
-				console.error("Failed to paste into terminal:", error);
-			}
-		};
-
 		// Shift+Enter: inject a CSI u escape sequence directly into the
 		// tmux pane (via send-keys -l) so TUI apps like Claude Code can
 		// detect the shift modifier. The normal ptyWrite path goes through
 		// tmux's input parser which strips modifier info in legacy mode.
 		// Block both keydown AND keypress to prevent xterm from also
 		// sending \r through the normal onData path.
-		term.attachCustomKeyEventHandler(
-			createKeyEventHandler(sessionId, getSelection, copySelection, pasteClipboard),
-		);
-
-		const handleCopy = (event: ClipboardEvent) => {
-			const selection = getSelection();
-			if (!selection) return;
-			event.preventDefault();
-			event.stopPropagation();
-			event.clipboardData?.setData("text/plain", selection);
-			window.api.writeClipboardText(selection);
-		};
-
-		const handlePaste = (event: ClipboardEvent) => {
-			const text =
-				event.clipboardData?.getData("text/plain") ??
-				window.api.readClipboardText();
-			if (!text) return;
-			event.preventDefault();
-			event.stopPropagation();
-			term.paste(text);
-		};
-
-		container.addEventListener("copy", handleCopy, true);
-		container.addEventListener("paste", handlePaste, true);
+		const cleanupClipboard = attachClipboardHandlers(term, container, sessionId);
 
 		term.onData((data: string) => {
 			window.api.ptyWrite(sessionId, data);
@@ -266,8 +279,7 @@ function TerminalTab({ sessionId, visible, restored, scrollbackData }: TerminalT
 			window.removeEventListener("focus", onWindowFocus);
 			mediaQuery.removeEventListener("change", onThemeChange);
 			resizeObserver.disconnect();
-			container.removeEventListener("copy", handleCopy, true);
-			container.removeEventListener("paste", handlePaste, true);
+			cleanupClipboard();
 			window.api.offPtyData(handleData);
 			offShellBlur();
 			term.dispose();
