@@ -98,7 +98,7 @@ function TerminalTab({ sessionId, visible, restored, scrollbackData }: TerminalT
 			return selection.length > 0 ? selection : null;
 		};
 
-		const copySelection = async () => {
+		const copySelection = () => {
 			const selection = getSelection();
 			if (!selection) return;
 			try {
@@ -108,7 +108,7 @@ function TerminalTab({ sessionId, visible, restored, scrollbackData }: TerminalT
 			}
 		};
 
-		const pasteClipboard = async () => {
+		const pasteClipboard = () => {
 			try {
 				const text = window.api.readClipboardText();
 				if (!text) return;
