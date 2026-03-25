@@ -598,6 +598,15 @@ ipcMain.handle(
   (_event, sessionId: string) => pty.getForegroundProcess(sessionId),
 );
 
+ipcMain.handle(
+  "pty:cleanup-orphan-clients",
+  (_event, knownSessionIds: string[]) => {
+    const killed = pty.cleanupOrphanedClients(knownSessionIds);
+    pty.cleanStaleSessionMeta();
+    return killed;
+  },
+);
+
 let settingsOpen = false;
 
 function setSettingsOpen(open: boolean): void {
@@ -707,6 +716,41 @@ app.on("web-contents-created", (_event, contents) => {
 });
 
 app.whenReady().then(async () => {
+  // --- App Translocation detection (macOS) ---
+  // macOS Gatekeeper may "translocate" unsigned/quarantined apps to a
+  // random /private/var/folders/ path, which breaks tmux socket reuse
+  // across launches and causes orphaned client processes.
+  if (
+    app.isPackaged &&
+    process.platform === "darwin" &&
+    (process.resourcesPath.includes("/AppTranslocation/") ||
+      app.getPath("exe").startsWith("/private/var/folders/"))
+  ) {
+    const dismissedKey = "translocateWarningDismissed";
+    const alreadyDismissed = getPref(config, dismissedKey);
+    if (!alreadyDismissed) {
+      // Show non-blocking warning dialog
+      dialog
+        .showMessageBox({
+          type: "warning",
+          title: "App Translocation Detected",
+          message:
+            "Collaborator is running from a temporary location.",
+          detail:
+            "macOS has translocated this app, which can cause orphaned " +
+            "terminal processes and increased CPU usage after restarts.\n\n" +
+            "To fix this, move Collaborator.app to /Applications and relaunch.",
+          buttons: ["OK", "Don\u2019t show again"],
+          defaultId: 0,
+        })
+        .then(({ response }) => {
+          if (response === 1) {
+            setPref(config, dismissedKey, true);
+          }
+        });
+    }
+  }
+
   // Set a standard Chrome user-agent on the browser tile session so sites
   // (especially Google OAuth) treat it as a real browser, not an embedded webview.
   const browserSession = session.fromPartition("persist:browser");

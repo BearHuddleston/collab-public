@@ -1263,6 +1263,23 @@ async function init() {
 			}
 		}
 		window.shellApi.ptyCleanDetached?.(activeSessionIds);
+
+		// Phase 2: Kill orphaned tmux client processes (node-pty children
+		// left behind after a crash or app translocation).
+		// Delay to allow terminal tile webviews to reconnect first.
+		setTimeout(() => {
+			window.shellApi.ptyCleanupOrphanClients?.(activeSessionIds)
+				.then((killed) => {
+					if (killed > 0) {
+						console.log(
+							`[renderer] Cleaned up ${killed} orphaned tmux client(s)`,
+						);
+					}
+				})
+				.catch((err) => {
+					console.warn("[renderer] Orphan client cleanup failed:", err);
+				});
+		}, 5000);
 	}
 
 	// -- Initialize workspaces --
