@@ -118,6 +118,12 @@ function TerminalTab({ sessionId, visible, restored, scrollbackData }: TerminalT
 			}
 		};
 
+		// Shift+Enter: inject a CSI u escape sequence directly into the
+		// tmux pane (via send-keys -l) so TUI apps like Claude Code can
+		// detect the shift modifier. The normal ptyWrite path goes through
+		// tmux's input parser which strips modifier info in legacy mode.
+		// Block both keydown AND keypress to prevent xterm from also
+		// sending \r through the normal onData path.
 		term.attachCustomKeyEventHandler((e) => {
 			if (e.key === "Enter" && e.shiftKey) {
 				if (e.type === "keydown") {
