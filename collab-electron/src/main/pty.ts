@@ -160,7 +160,7 @@ async function spawnSidecar(): Promise<void> {
   const sidecarPath = app.isPackaged
     ? path.join(
         process.resourcesPath,
-        "app.asar.unpacked",
+        "app.asar",
         "out",
         "main",
         "pty-sidecar.js",
