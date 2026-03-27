@@ -27,8 +27,8 @@ interface CanvasState {
   version: 1;
   tiles: TileState[];
   viewport: {
-    panX: number;
-    panY: number;
+    centerX: number;
+    centerY: number;
     zoom: number;
   };
 }
