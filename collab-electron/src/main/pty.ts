@@ -156,7 +156,7 @@ async function spawnSidecar(): Promise<void> {
   const { app } = require("electron");
   const sidecarPath = app.isPackaged
     ? path.join(process.resourcesPath, "pty-sidecar.js")
-    : path.join(__dirname, "sidecar", "entry.js");
+    : path.join(__dirname, "pty-sidecar.js");
 
   const child = require("node:child_process").spawn(
     process.execPath,
@@ -265,6 +265,7 @@ export async function createSession(
   const mode = terminalMode();
 
   if (mode === "sidecar") {
+    await ensureSidecar();
     const client = getSidecarClient();
     const { sessionId: sid, socketPath } =
       await client.createSession({
@@ -354,6 +355,7 @@ export async function reconnectSession(
   const mode = terminalMode();
 
   if (mode === "sidecar") {
+    await ensureSidecar();
     const client = getSidecarClient();
     const { socketPath } = await client.reconnectSession(
       sessionId, cols, rows,
