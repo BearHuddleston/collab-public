@@ -690,11 +690,20 @@ async function init() {
 
 			const duplicatedTiles = [];
 			clearSelection();
+			const minX = Math.min(
+				...copiedTerminalTiles.map((blueprint) => blueprint.x),
+			);
+			const maxRight = Math.max(
+				...copiedTerminalTiles.map(
+					(blueprint) => blueprint.x + blueprint.width,
+				),
+			);
+			const offsetX = maxRight - minX + GRID_CELL;
 
 			for (const blueprint of copiedTerminalTiles) {
 				const tile = tileManager.createCanvasTile(
 					"term",
-					blueprint.x + blueprint.width + GRID_CELL,
+					blueprint.x + offsetX,
 					blueprint.y,
 					{
 						width: blueprint.width,

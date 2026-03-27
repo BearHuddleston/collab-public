@@ -46,7 +46,7 @@ function createKeyEventHandler(
 		if (key === "v" && (isMetaShortcut || isCtrlShortcut)) { pasteClipboard(); return false; }
 		if (!IS_MAC && e.shiftKey && key === "insert") { pasteClipboard(); return false; }
 		if (!IS_MAC && e.ctrlKey && !e.metaKey && !e.altKey && key === "insert") { copySelection(); return false; }
-		if ((e.metaKey || e.ctrlKey) && (key === "t" || (key >= "1" && key <= "9"))) return false;
+		if (isMetaShortcut && (key === "t" || (key >= "1" && key <= "9"))) return false;
 
 		return true;
 	};
