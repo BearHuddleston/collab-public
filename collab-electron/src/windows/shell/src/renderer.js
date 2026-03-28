@@ -1164,7 +1164,7 @@ async function init() {
 		setTimeout(() => {
 			loadingOverlay.remove();
 		}, 350);
-		// checkFirstLaunchDialog(); // disabled — CLI not ready yet
+		checkFirstLaunchDialog();
 	});
 
 	// -- Drag-and-drop (window-level) --
