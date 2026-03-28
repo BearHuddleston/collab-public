@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { normalizeCommandName } from "@collab/shared/path-utils";
 import "./App.css";
 
 interface TerminalEntry {
@@ -12,10 +13,7 @@ interface TerminalEntry {
 
 function isIdle(entry: TerminalEntry): boolean {
   if (!entry.foreground) return true;
-  return (
-    entry.foreground === entry.commandName ||
-    entry.foreground === entry.displayName
-  );
+  return normalizeCommandName(entry.foreground) === entry.commandName;
 }
 
 function App() {

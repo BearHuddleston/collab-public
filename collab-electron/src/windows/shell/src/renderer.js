@@ -12,7 +12,7 @@ import { createPanel } from "./panel-manager.js";
 import { createWorkspaceManager } from "./workspace-manager.js";
 import { createCanvasRpc } from "./canvas-rpc.js";
 import { createTileManager } from "./tile-manager.js";
-import { displayBasename } from "@collab/shared/path-utils";
+import { normalizeCommandName } from "@collab/shared/path-utils";
 
 const CANVAS_DBLCLICK_SUPPRESS_MS = 500;
 const IS_WINDOWS = window.shellApi.getPlatform() === "win32";
@@ -272,9 +272,9 @@ async function init() {
 			terminalListWebview.send("terminal-list:add", {
 				sessionId: tile.ptySessionId,
 				displayName: session?.meta?.displayName || "Terminal",
-				commandName: displayBasename(
+				commandName: normalizeCommandName(
 					session?.meta?.command || session?.meta?.shell || "shell",
-				),
+				) || "shell",
 				cwd: session?.meta?.cwdHostPath || session?.meta?.cwd || tile.cwd || "~",
 				foreground: null,
 				tileId: tile.id,
@@ -987,9 +987,9 @@ async function init() {
 					initEntries.push({
 						sessionId: tile.ptySessionId,
 						displayName: disc?.meta?.displayName || "Terminal",
-						commandName: displayBasename(
+						commandName: normalizeCommandName(
 							disc?.meta?.command || disc?.meta?.shell || "shell",
-						),
+						) || "shell",
 						cwd: disc?.meta?.cwdHostPath || disc?.meta?.cwd || "~",
 						foreground: null,
 						tileId: tile.id,
