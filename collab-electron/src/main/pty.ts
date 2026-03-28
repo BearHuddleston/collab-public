@@ -276,6 +276,7 @@ export async function createSession(
   senderWebContentsId?: number,
   cols?: number,
   rows?: number,
+  tileId?: string,
 ): Promise<{ sessionId: string; shell: string }> {
   const sessionId = crypto.randomBytes(8).toString("hex");
   const shell = process.env.SHELL || "/bin/zsh";
@@ -288,13 +289,15 @@ export async function createSession(
   if (mode === "sidecar") {
     await ensureSidecar();
     const client = getSidecarClient();
+    const sidecarEnv = utf8Env();
+    if (tileId) sidecarEnv.COLLAB_TILE_ID = tileId;
     const { sessionId: sid, socketPath } =
       await client.createSession({
         shell,
         cwd: resolvedCwd,
         cols: c,
         rows: r,
-        env: utf8Env(),
+        env: sidecarEnv,
       });
 
     const dataSock = await client.attachDataSocket(
@@ -334,6 +337,12 @@ export async function createSession(
     "set-environment", "-t", name,
     "COLLAB_PTY_SESSION_ID", sessionId,
   );
+  if (tileId) {
+    tmuxExec(
+      "set-environment", "-t", name,
+      "COLLAB_TILE_ID", tileId,
+    );
+  }
   tmuxExec(
     "set-environment", "-t", name,
     "SHELL", shell,

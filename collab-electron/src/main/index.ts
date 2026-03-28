@@ -533,8 +533,8 @@ ipcMain.handle(
 
 ipcMain.handle(
   "pty:create",
-  (event, params?: { cwd?: string; cols?: number; rows?: number }) =>
-    pty.createSession(params?.cwd, event.sender.id, params?.cols, params?.rows),
+  (event, params?: { cwd?: string; cols?: number; rows?: number; tileId?: string }) =>
+    pty.createSession(params?.cwd, event.sender.id, params?.cols, params?.rows, params?.tileId),
 );
 
 ipcMain.handle(
