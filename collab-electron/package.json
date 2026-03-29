@@ -44,7 +44,6 @@
 			"NOTICE"
 		],
 		"afterSign": "scripts/notarize.cjs",
-		"afterAllArtifactBuild": "scripts/fix-artifacts.cjs",
 		"extraResources": [
 			{
 				"from": "vendor/tmux/tmux",
