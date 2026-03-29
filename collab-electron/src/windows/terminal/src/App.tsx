@@ -97,7 +97,7 @@ function App() {
         await new Promise<void>((resolve) => {
           const onData = (p: {
             sessionId: string;
-            data: string;
+            data: Uint8Array;
           }) => {
             if (p.sessionId === session.id) {
               window.api.offPtyData(onData);
@@ -199,7 +199,7 @@ function App() {
       const ready = await new Promise<boolean>((resolve) => {
         const onData = (p: {
           sessionId: string;
-          data: string;
+          data: Uint8Array;
         }) => {
           if (p.sessionId === session.id) {
             cleanup();
