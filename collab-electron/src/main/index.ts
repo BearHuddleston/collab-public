@@ -21,6 +21,8 @@ import {
   saveConfig,
   getPref,
   setPref,
+  getTerminalBackend,
+  getTerminalMode,
   type WindowState,
   type TerminalTarget,
 } from "./config";
@@ -773,10 +775,15 @@ app.whenReady().then(async () => {
     onBeforeQuit: () => shutdownBackgroundServices(),
   });
 
-  try {
-    await pty.ensureSidecar();
-  } catch (err) {
-    console.error("Sidecar failed to start:", err);
+  if (
+    getTerminalMode() !== "tmux"
+    && getTerminalBackend() === "sidecar"
+  ) {
+    try {
+      await pty.ensureSidecar();
+    } catch (err) {
+      console.error("Sidecar failed to start:", err);
+    }
   }
 
   buildAppMenu();
