@@ -142,7 +142,7 @@ body {
 	display: flex;
 	flex-direction: column;
 	position: relative;
-	background-color: transparent;
+	background-color: var(--background);
 	overflow-y: auto;
 }
 
