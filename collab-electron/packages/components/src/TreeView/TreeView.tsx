@@ -263,6 +263,7 @@ export interface FileRowProps {
 		path: string,
 	) => void;
 	onDragEnd?: () => void;
+	sortMode?: SortMode;
 }
 
 export const FileRow = React.memo(
@@ -283,11 +284,13 @@ export const FileRow = React.memo(
 		onRenameCancel,
 		onDragStart,
 		onDragEnd,
+		sortMode,
 	}: FileRowProps) {
 		const { stem, ext } = displayFileName(
 			item.name,
 		);
 		const thumbnailUrl = useImageThumbnail(item.path, ICON_SIZE * 4);
+		const showTimestamp = !sortMode?.startsWith('alpha');
 
 		return (
 			<div
@@ -370,9 +373,11 @@ export const FileRow = React.memo(
 					</span>
 				)}
 				<div className="row-action-buttons">
-					<span className="row-timestamp">
-						{formatRelativeTime(item.ctime)}
-					</span>
+					{showTimestamp && (
+						<span className="row-timestamp">
+							{formatRelativeTime(item.ctime)}
+						</span>
+					)}
 				</div>
 			</div>
 		);
@@ -393,7 +398,8 @@ export const FileRow = React.memo(
 		prev.renameValue === next.renameValue &&
 		prev.onContextMenu === next.onContextMenu &&
 		prev.onDragStart === next.onDragStart &&
-		prev.onDragEnd === next.onDragEnd,
+		prev.onDragEnd === next.onDragEnd &&
+		prev.sortMode === next.sortMode,
 );
 
 interface TreeViewProps {
@@ -925,6 +931,7 @@ export const TreeView: React.FC<
 						}
 						onDragStart={onDragStart}
 						onDragEnd={onDragEnd}
+						sortMode={sortMode}
 					/>,
 				);
 				i++;
