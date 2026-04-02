@@ -1,3 +1,4 @@
+import "./logger";
 import {
   app,
   BrowserWindow,
@@ -559,6 +560,7 @@ ipcMain.handle(
       cwd?: string;
       cols?: number;
       rows?: number;
+      tileId?: string;
       target?: TerminalTarget;
     },
   ) =>
@@ -568,6 +570,7 @@ ipcMain.handle(
       params?.cols,
       params?.rows,
       params?.target,
+      params?.tileId,
     ),
 );
 
@@ -635,6 +638,14 @@ ipcMain.handle(
 ipcMain.handle(
   "pty:foreground-process",
   (_event, sessionId: string) => pty.getForegroundProcess(sessionId),
+);
+
+ipcMain.handle(
+  "pty:capture",
+  (
+    _event,
+    { sessionId, lines }: { sessionId: string; lines?: number },
+  ) => pty.captureSession(sessionId, lines),
 );
 
 let settingsOpen = false;
