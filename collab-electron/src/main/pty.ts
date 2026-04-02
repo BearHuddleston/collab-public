@@ -54,6 +54,13 @@ const dataSockets = new Map<string, net.Socket>();
  * touch the `sessions` Map (which holds IPty objects).
  */
 const sidecarSessionIds = new Set<string>();
+const sidecarPowerShellSessionIds = new Set<string>();
+const pendingPtyData = new Map<string, Buffer[]>();
+const pendingPtyDataTimers = new Map<
+  string,
+  ReturnType<typeof setTimeout>
+>();
+const WINDOWS_POWERSHELL_PTY_BATCH_MS = 16;
 
 function getSidecarClient(): SidecarClient {
   if (!sidecarClient) throw new Error("Sidecar client not initialized");
@@ -95,6 +102,69 @@ function sendToSender(
   const sender = wc.fromId(senderWebContentsId);
   if (sender && !sender.isDestroyed()) {
     sender.send(channel, payload);
+  }
+}
+
+function shouldBatchWindowsPowerShellOutput(sessionId: string): boolean {
+  return (
+    process.platform === "win32"
+    && sidecarPowerShellSessionIds.has(sessionId)
+  );
+}
+
+function clearPendingPtyData(sessionId: string): void {
+  const timer = pendingPtyDataTimers.get(sessionId);
+  if (timer) {
+    clearTimeout(timer);
+    pendingPtyDataTimers.delete(sessionId);
+  }
+  pendingPtyData.delete(sessionId);
+}
+
+function flushPendingPtyData(
+  sessionId: string,
+  senderWebContentsId: number | undefined,
+): void {
+  pendingPtyDataTimers.delete(sessionId);
+  const chunks = pendingPtyData.get(sessionId);
+  if (!chunks || chunks.length === 0) return;
+  pendingPtyData.delete(sessionId);
+
+  const data = chunks.length === 1
+    ? chunks[0]
+    : Buffer.concat(chunks);
+  sendToSender(senderWebContentsId, "pty:data", {
+    sessionId,
+    data,
+  });
+  scheduleForegroundCheck(sessionId);
+}
+
+function forwardPtyData(
+  sessionId: string,
+  senderWebContentsId: number | undefined,
+  data: Buffer,
+): void {
+  if (!shouldBatchWindowsPowerShellOutput(sessionId)) {
+    sendToSender(senderWebContentsId, "pty:data", {
+      sessionId,
+      data,
+    });
+    scheduleForegroundCheck(sessionId);
+    return;
+  }
+
+  const queued = pendingPtyData.get(sessionId) ?? [];
+  queued.push(data);
+  pendingPtyData.set(sessionId, queued);
+  if (!pendingPtyDataTimers.has(sessionId)) {
+    pendingPtyDataTimers.set(
+      sessionId,
+      setTimeout(
+        () => flushPendingPtyData(sessionId, senderWebContentsId),
+        WINDOWS_POWERSHELL_PTY_BATCH_MS,
+      ),
+    );
   }
 }
 
@@ -181,8 +251,10 @@ async function doEnsureSidecar(): Promise<void> {
           sessionId: string;
           exitCode: number;
         };
+        clearPendingPtyData(sessionId);
         dataSockets.get(sessionId)?.destroy();
         dataSockets.delete(sessionId);
+        sidecarPowerShellSessionIds.delete(sessionId);
         deleteSessionMeta(sessionId);
         sendToMainWindow("pty:exit", { sessionId, exitCode });
       }
@@ -422,11 +494,7 @@ export async function createSession(
   const dataSock = await client.attachDataSocket(
     socketPath,
     (data) => {
-      sendToSender(senderWebContentsId, "pty:data", {
-        sessionId,
-        data,
-      });
-      scheduleForegroundCheck(sessionId);
+      forwardPtyData(sessionId, senderWebContentsId, data);
     },
   );
   dataSockets.set(sessionId, dataSock);
@@ -449,6 +517,9 @@ export async function createSession(
   );
 
   sidecarSessionIds.add(sessionId);
+  if (resolvedTarget.target === "powershell") {
+    sidecarPowerShellSessionIds.add(sessionId);
+  }
   return withOptionalFields({
     sessionId,
     shell: resolvedTarget.command,
@@ -504,11 +575,7 @@ export async function reconnectSession(
     const dataSock = await client.attachDataSocket(
       socketPath,
       (data) => {
-        sendToSender(senderWebContentsId, "pty:data", {
-          sessionId,
-          data,
-        });
-        scheduleForegroundCheck(sessionId);
+        forwardPtyData(sessionId, senderWebContentsId, data);
       },
     );
 
@@ -518,6 +585,9 @@ export async function reconnectSession(
     const shell = meta?.command || meta?.shell || process.env.SHELL || "/bin/zsh";
     const displayName = meta?.displayName || displayBasename(shell) || "shell";
     sidecarSessionIds.add(sessionId);
+    if (meta?.target === "powershell") {
+      sidecarPowerShellSessionIds.add(sessionId);
+    }
 
     return withOptionalFields({
       sessionId,
@@ -663,6 +733,8 @@ export async function killSession(
       // Session may already be dead
     }
     sidecarSessionIds.delete(sessionId);
+    sidecarPowerShellSessionIds.delete(sessionId);
+    clearPendingPtyData(sessionId);
     deleteSessionMeta(sessionId);
     return;
   }
@@ -681,6 +753,8 @@ export async function killSession(
     // Session may already be dead
   }
 
+  clearPendingPtyData(sessionId);
+  sidecarPowerShellSessionIds.delete(sessionId);
   deleteSessionMeta(sessionId);
 }
 
@@ -695,6 +769,10 @@ export function killAll(): void {
   }
   dataSockets.clear();
   sidecarSessionIds.clear();
+  sidecarPowerShellSessionIds.clear();
+  for (const sessionId of pendingPtyDataTimers.keys()) {
+    clearPendingPtyData(sessionId);
+  }
   for (const [, session] of sessions) {
     for (const d of session.disposables) d.dispose();
     session.pty.kill();
@@ -897,8 +975,13 @@ export async function getForegroundProcess(
 const lastForeground = new Map<string, string>();
 const statusTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const STATUS_DEBOUNCE_MS = 500;
-const lastForegroundCheckAt = new Map<string, number>();
-const WINDOWS_SIDECAR_FOREGROUND_MIN_INTERVAL_MS = 2000;
+
+function shouldSkipForegroundCheck(sessionId: string): boolean {
+  return (
+    process.platform === "win32"
+    && sessionBackend(sessionId) === "sidecar"
+  );
+}
 
 function sendToMainWindow(channel: string, payload: unknown): void {
   const { BrowserWindow } = require("electron");
@@ -911,6 +994,11 @@ function sendToMainWindow(channel: string, payload: unknown): void {
 }
 
 export function scheduleForegroundCheck(sessionId: string): void {
+  if (shouldSkipForegroundCheck(sessionId)) {
+    clearForegroundCache(sessionId);
+    return;
+  }
+
   const existing = statusTimers.get(sessionId);
   if (existing) clearTimeout(existing);
 
@@ -918,19 +1006,6 @@ export function scheduleForegroundCheck(sessionId: string): void {
     sessionId,
     setTimeout(() => {
       statusTimers.delete(sessionId);
-      if (
-        process.platform === "win32"
-        && sessionBackend(sessionId) === "sidecar"
-      ) {
-        const now = Date.now();
-        const lastCheckAt = lastForegroundCheckAt.get(sessionId) ?? 0;
-        if (
-          now - lastCheckAt < WINDOWS_SIDECAR_FOREGROUND_MIN_INTERVAL_MS
-        ) {
-          return;
-        }
-        lastForegroundCheckAt.set(sessionId, now);
-      }
       getForegroundProcess(sessionId).then((fg) => {
         if (fg == null) return;
 
@@ -949,7 +1024,6 @@ export function scheduleForegroundCheck(sessionId: string): void {
 
 export function clearForegroundCache(sessionId: string): void {
   lastForeground.delete(sessionId);
-  lastForegroundCheckAt.delete(sessionId);
   const timer = statusTimers.get(sessionId);
   if (timer) {
     clearTimeout(timer);

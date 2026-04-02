@@ -13,7 +13,6 @@ import "./TerminalTab.css";
 // processing many small sequential writes.
 const DATA_BUFFER_FLUSH_MS = 5;
 const IS_MAC = window.api.getPlatform() === "darwin";
-type PtyDataChunk = string | Uint8Array;
 
 interface TerminalTabProps {
 	sessionId: string;
@@ -23,7 +22,13 @@ interface TerminalTabProps {
 	mode?: "tmux" | "sidecar";
 }
 
-function TerminalTab({ sessionId, visible, restored, scrollbackData, mode }: TerminalTabProps) {
+function TerminalTab({
+	sessionId,
+	visible,
+	restored,
+	scrollbackData,
+	mode,
+}: TerminalTabProps) {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const fitRef = useRef<FitAddon | null>(null);
 
@@ -167,7 +172,7 @@ function TerminalTab({ sessionId, visible, restored, scrollbackData, mode }: Ter
 			window.api.ptyWrite(sessionId, data);
 		});
 
-		let dataBuffer: PtyDataChunk[] = [];
+		let dataBuffer: Uint8Array[] = [];
 		let flushTimer: number | undefined;
 		let firstData = true;
 
@@ -194,7 +199,7 @@ function TerminalTab({ sessionId, visible, restored, scrollbackData, mode }: Ter
 
 		const handleData = (payload: {
 			sessionId: string;
-			data: PtyDataChunk;
+			data: Uint8Array;
 		}) => {
 			if (payload.sessionId !== sessionId) return;
 			dataBuffer.push(payload.data);

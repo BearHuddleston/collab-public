@@ -24,11 +24,12 @@ $electronPath = [System.IO.Path]::Combine(
   "dist",
   "electron.exe"
 )
-$electronVitePath = [System.IO.Path]::Combine(
+$electronViteScriptPath = [System.IO.Path]::Combine(
   $repoDir,
   "node_modules",
-  ".bin",
-  "electron-vite.exe"
+  "electron-vite",
+  "bin",
+  "electron-vite.js"
 )
 
 Get-CimInstance Win32_Process -Filter "Name = 'electron.exe'" -ErrorAction SilentlyContinue |
@@ -50,5 +51,5 @@ $env:COLLAB_DEV_WORKTREE_ROOT = $repoDir
 
 Start-Sleep -Milliseconds 500
 
-& $electronVitePath dev
+& node $electronViteScriptPath dev
 exit $LASTEXITCODE

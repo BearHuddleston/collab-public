@@ -371,7 +371,7 @@ export class SidecarServer {
         rows: params.rows,
         cwd: params.cwd,
         env,
-        ...(process.platform === "win32" ? {} : { encoding: null }),
+        encoding: null,
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -438,8 +438,6 @@ export class SidecarServer {
     // Create per-session data socket server
     prepareEndpoint(socketPath);
     const dataServer = net.createServer((client) => {
-      client.setEncoding("utf8");
-
       // Last-attach-wins: close previous client
       if (session.dataClient && !session.dataClient.destroyed) {
         session.dataClient.destroy();
@@ -466,7 +464,7 @@ export class SidecarServer {
 
       // Pipe client input to PTY
       client.on("data", (data) => {
-        ptyProcess.write(data);
+        ptyProcess.write(data.toString());
       });
 
       client.on("close", () => {

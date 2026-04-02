@@ -1,11 +1,12 @@
 import { spawnSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { normalizeWindowsPath, resolvePackageBin } from "./local-bin.mjs";
 
 const args = process.argv.slice(2);
 const builderArgs = ["--publish", "never"];
 const env = { ...process.env };
-const cwd = process.cwd();
+const cwd = normalizeWindowsPath(process.cwd());
 
 // Load .env.local (same approach as notarize.cjs) so GH_TOKEN and other
 // credentials are available without requiring a manual export.
@@ -36,6 +37,17 @@ if (args.includes("--no-sign")) {
   env.CSC_IDENTITY_AUTO_DISCOVERY = "false";
   env.SKIP_NOTARIZE = "true";
   builderArgs.push("-c.mac.identity=null");
+  builderArgs.push("-c.win.signAndEditExecutable=false");
+
+  for (const key of [
+    "CSC_LINK",
+    "CSC_KEY_PASSWORD",
+    "CSC_NAME",
+    "WIN_CSC_LINK",
+    "WIN_CSC_KEY_PASSWORD",
+  ]) {
+    delete env[key];
+  }
 }
 
 function run(command, commandArgs, extraEnv = env) {
@@ -53,17 +65,8 @@ function run(command, commandArgs, extraEnv = env) {
   }
 }
 
-function binPath(name) {
-  return join(
-    cwd,
-    "node_modules",
-    ".bin",
-    process.platform === "win32" ? `${name}.exe` : name,
-  );
-}
-
-function detectMismatchedToolchain(expectedName) {
-  const expected = binPath(expectedName);
+function detectMismatchedToolchain(expectedName, packageName = expectedName) {
+  const expected = resolvePackageBin(cwd, packageName, expectedName);
   const opposite = join(
     cwd,
     "node_modules",
@@ -124,6 +127,11 @@ function targetArchitectures() {
 }
 
 function installNodePtyPrebuilds(arch) {
+  if (process.platform === "win32" && arch === process.arch) {
+    console.log(`• node-pty prebuilds (${process.platform}-${arch}) already installed`);
+    return;
+  }
+
   const tag = `${process.platform}-${arch}`;
   const src = join(cwd, "node_modules", "node-pty", "prebuilds", tag);
   const dst = join(cwd, "node_modules", "node-pty", "build", "Release");
@@ -140,18 +148,19 @@ function installNodePtyPrebuilds(arch) {
 
 const electronVite = detectMismatchedToolchain("electron-vite");
 const electronBuilder = detectMismatchedToolchain("electron-builder");
+const builtArches = targetArchitectures();
 
 // Vite build is arch-independent — run once.
-run(electronVite, ["build"]);
+run(process.execPath, [electronVite, "build"]);
 
 // Package once per target arch.
-for (const arch of targetArchitectures()) {
+for (const arch of builtArches) {
   // On Windows, install prebuilds since source compilation fails.
   // On macOS, electron-builder's npmRebuild handles it.
   if (process.platform === "win32") {
     installNodePtyPrebuilds(arch);
   }
-  run(electronBuilder, [...builderArgs, `--${arch}`]);
+  run(process.execPath, [electronBuilder, ...builderArgs, `--${arch}`]);
 }
 
 // Use upload-to-github.cjs instead of electron-builder's publisher to avoid
@@ -160,7 +169,6 @@ for (const arch of targetArchitectures()) {
 if (shouldPublish) {
   const uploadArgs = [join(cwd, "scripts", "upload-to-github.cjs")];
   // Forward --arch so the upload script only publishes the built architectures.
-  const builtArches = targetArchitectures();
   uploadArgs.push("--arch", builtArches.join(","));
-  run("node", uploadArgs);
+  run(process.execPath, uploadArgs);
 }
