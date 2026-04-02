@@ -117,6 +117,20 @@ export function getSelectedTiles() {
 	return tiles.filter((t) => selectedTileIds.has(t.id));
 }
 
+/** @returns {Tile | null} */
+export function tileAtPoint(cx, cy) {
+	const sorted = [...tiles].sort((a, b) => b.zIndex - a.zIndex);
+	for (const tile of sorted) {
+		if (
+			cx >= tile.x && cx < tile.x + tile.width &&
+			cy >= tile.y && cy < tile.y + tile.height
+		) {
+			return tile;
+		}
+	}
+	return null;
+}
+
 export function inferTileType(filePath) {
 	const ext = filePath.slice(filePath.lastIndexOf(".")).toLowerCase();
 	if (ext === ".md") return "note";

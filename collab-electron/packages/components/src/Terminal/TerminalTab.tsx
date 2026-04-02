@@ -251,8 +251,52 @@ function TerminalTab({ sessionId, visible, restored, scrollbackData, mode }: Ter
 			event.stopImmediatePropagation();
 		};
 
+		const handleDragOver = (event: DragEvent) => {
+			event.preventDefault();
+			if (event.dataTransfer) {
+				event.dataTransfer.dropEffect = "copy";
+			}
+		};
+
+		const handleDrop = async (event: DragEvent) => {
+			event.preventDefault();
+			event.stopPropagation();
+			if (!event.dataTransfer?.files?.length) return;
+
+			// Extract paths synchronously before any await
+			const rawPaths: string[] = [];
+			for (let i = 0; i < event.dataTransfer.files.length; i++) {
+				try {
+					const p = window.api.getPathForFile(
+						event.dataTransfer.files[i],
+					);
+					if (p) rawPaths.push(p);
+				} catch { /* skip non-file items */ }
+			}
+			if (rawPaths.length === 0) return;
+
+			// Filter out directories
+			const checks = rawPaths.map(async (p) => {
+				const isDir = await window.api.isDirectory(p);
+				return isDir ? null : p;
+			});
+			const paths = (await Promise.all(checks)).filter(
+				(p): p is string => p !== null,
+			);
+			if (paths.length === 0) return;
+
+			const escaped = paths.map(
+				(p) => "'" + p.replace(/'/g, "'\\''") + "'",
+			);
+			try {
+				await window.api.ptyWrite(sessionId, escaped.join(" "));
+			} catch { /* PTY may have exited */ }
+		};
+
 		container.addEventListener("copy", handleCopy, true);
 		container.addEventListener("paste", handlePaste, true);
+		container.addEventListener("dragover", handleDragOver);
+		container.addEventListener("drop", handleDrop);
 
 		const offShellBlur = window.api.onShellBlur(() => {
 			term.blur();
@@ -290,6 +334,8 @@ function TerminalTab({ sessionId, visible, restored, scrollbackData, mode }: Ter
 			resizeObserver.disconnect();
 			container.removeEventListener("copy", handleCopy, true);
 			container.removeEventListener("paste", handlePaste, true);
+			container.removeEventListener("dragover", handleDragOver);
+			container.removeEventListener("drop", handleDrop);
 			window.api.offPtyData(sessionId, handleData);
 			offShellBlur();
 			term.dispose();

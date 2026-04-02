@@ -1,6 +1,6 @@
 import "./shell.css";
 import {
-	tiles, getTile, defaultSize, inferTileType,
+	tiles, getTile, defaultSize, inferTileType, tileAtPoint,
 	selectTile, clearSelection, getSelectedTiles,
 } from "./canvas-state.js";
 import { attachMarquee } from "./tile-interactions.js";
@@ -1275,6 +1275,21 @@ async function init() {
 		});
 		const filePaths = (await Promise.all(checks)).filter(Boolean);
 		if (filePaths.length === 0) return;
+
+		// If drop landed on a terminal tile, paste paths into the PTY
+		const targetTile = tileAtPoint(cx, cy);
+		if (targetTile && targetTile.type === "term" && targetTile.ptySessionId) {
+			const escaped = filePaths.map(
+				(p) => "'" + p.replace(/'/g, "'\\''") + "'",
+			);
+			try {
+				await window.shellApi.ptyWrite(
+					targetTile.ptySessionId,
+					escaped.join(" "),
+				);
+			} catch { /* PTY may have exited */ }
+			return;
+		}
 
 		for (let i = 0; i < filePaths.length; i++) {
 			const filePath = filePaths[i];
