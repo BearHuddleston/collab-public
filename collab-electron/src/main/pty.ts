@@ -1250,7 +1250,8 @@ export async function captureSession(
 
   const name = tmuxSessionName(sessionId);
   try {
-    const raw = tmuxExec(
+    const raw = tmuxExecForTarget(
+      tmuxTargetForSession(sessionId),
       "capture-pane", "-t", name,
       "-p", "-S", `-${lines}`,
     );
