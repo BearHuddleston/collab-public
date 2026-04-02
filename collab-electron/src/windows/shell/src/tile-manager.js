@@ -7,6 +7,7 @@ import {
 import {
 	createTileDOM, positionTile, updateTileTitle, getTileLabel,
 } from "./tile-renderer.js";
+import { toCollabFileUrl } from "@collab/shared/collab-file-url";
 import { workspaceRootMatch } from "@collab/shared/path-utils";
 import { attachDrag, attachResize } from "./tile-interactions.js";
 import { findAutoPlacement } from "./canvas-rpc.js";
@@ -188,6 +189,7 @@ export function createTileManager({
 		const wv = document.createElement("webview");
 		const termConfig = configs.terminalTile;
 		const params = new URLSearchParams();
+		params.set("tileId", tile.id);
 		if (tile.ptySessionId) {
 			params.set("sessionId", tile.ptySessionId);
 			params.set("restored", "1");
@@ -550,7 +552,7 @@ export function createTileManager({
 
 		if (type === "image") {
 			const img = document.createElement("img");
-			img.src = `collab-file://${filePath}`;
+			img.src = toCollabFileUrl(filePath);
 			img.style.width = "100%";
 			img.style.height = "100%";
 			img.style.objectFit = "contain";
