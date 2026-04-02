@@ -34,4 +34,22 @@ describe("collab-file-url", () => {
       "C:/Users/me/pic.png",
     );
   });
+
+  test("encodes # and ? in filenames", () => {
+    expect(toCollabFileUrl("/path/to/image#1.png")).toBe(
+      "collab-file:///path/to/image%231.png",
+    );
+    expect(toCollabFileUrl("/path/to/image?v2.png")).toBe(
+      "collab-file:///path/to/image%3Fv2.png",
+    );
+  });
+
+  test("round-trips filenames with # and ?", () => {
+    expect(fromCollabFileUrl(toCollabFileUrl("/path/to/image#1.png"))).toBe(
+      "/path/to/image#1.png",
+    );
+    expect(fromCollabFileUrl(toCollabFileUrl("/path/to/image?v2.png"))).toBe(
+      "/path/to/image?v2.png",
+    );
+  });
 });

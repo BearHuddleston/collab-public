@@ -9,7 +9,7 @@ export function toCollabFileUrl(absolutePath: string): string {
     normalized = `/${normalized}`;
   }
 
-  return `collab-file://${encodeURI(normalized)}`;
+  return `collab-file://${encodeURI(normalized).replace(/#/g, "%23").replace(/\?/g, "%3F")}`;
 }
 
 export function fromCollabFileUrl(url: string): string {
