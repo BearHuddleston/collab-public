@@ -1282,12 +1282,10 @@ async function init() {
 			const escaped = filePaths.map(
 				(p) => "'" + p.replace(/'/g, "'\\''") + "'",
 			);
-			try {
-				await window.shellApi.ptyWrite(
-					targetTile.ptySessionId,
-					escaped.join(" "),
-				);
-			} catch { /* PTY may have exited */ }
+			window.shellApi.ptyWrite(
+				targetTile.ptySessionId,
+				escaped.join(" "),
+			);
 			tileManager.focusCanvasTile(targetTile.id);
 			return;
 		}
