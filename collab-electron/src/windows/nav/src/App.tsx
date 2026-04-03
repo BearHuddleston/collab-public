@@ -7,7 +7,6 @@ import {
 	useDragDrop,
 	sortModeOrder,
 	TREE_SORT_MODE_STORAGE_KEY,
-	FEED_SORT_MODE_STORAGE_KEY,
 	ENABLE_GRAPH_TILES,
 } from '@collab/components/TreeView';
 import type {
@@ -15,12 +14,6 @@ import type {
 	FlatItem,
 	SearchSortControlsHandle,
 } from '@collab/components/TreeView';
-import {
-	TreeView as TreeViewIcon,
-	List,
-} from '@phosphor-icons/react';
-import { SourcesFeed } from '@collab/components/SourcesFeed';
-import '@collab/components/SourcesFeed/SourcesFeed.css';
 import type { AppConfig } from '@collab/shared/types';
 import { displayBasename, parentPath } from '@collab/shared/path-utils';
 
@@ -150,8 +143,6 @@ function ImportWebArticleModal({
 export default function App() {
 	const treeSearchRef =
 		useRef<SearchSortControlsHandle>(null);
-	const feedSearchRef =
-		useRef<SearchSortControlsHandle>(null);
 	const [config, setConfig] =
 		useState<AppConfig | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -164,17 +155,6 @@ export default function App() {
 	const [importModal, setImportModal] = useState<{
 		folderPath: string;
 	} | null>(null);
-
-	type NavViewMode = 'tree' | 'feed';
-	const VIEW_MODE_KEY = 'collab:nav-view-mode';
-	const [viewMode, setViewMode] =
-		useState<NavViewMode>('tree');
-
-	useEffect(() => {
-		window.api.getPref(VIEW_MODE_KEY).then((v) => {
-			if (v === 'feed') setViewMode('feed');
-		});
-	}, []);
 
 	const workspacePath =
 		config?.workspaces?.[config?.active_workspace] ?? '';
@@ -193,21 +173,12 @@ export default function App() {
 
 	const [treeSortMode, setTreeSortMode] =
 		useState<SortMode>('alpha-desc');
-	const [feedSortMode, setFeedSortMode] =
-		useState<SortMode>('alpha-desc');
-	const sortMode =
-		viewMode === 'feed'
-			? feedSortMode
-			: treeSortMode;
+	const sortMode = treeSortMode;
 
 	const focusActiveSearch = useCallback(() => {
 		window.focus();
-		if (viewMode === 'feed') {
-			feedSearchRef.current?.focusSearch();
-			return;
-		}
 		treeSearchRef.current?.focusSearch();
-	}, [viewMode]);
+	}, []);
 
 	useEffect(() => {
 		window.api
@@ -220,18 +191,6 @@ export default function App() {
 					)
 				) {
 					setTreeSortMode(v as SortMode);
-				}
-			});
-		window.api
-			.getPref(FEED_SORT_MODE_STORAGE_KEY)
-			.then((v) => {
-				if (
-					typeof v === 'string' &&
-					sortModeOrder.includes(
-						v as SortMode,
-					)
-				) {
-					setFeedSortMode(v as SortMode);
 				}
 			});
 	}, []);
@@ -425,21 +384,6 @@ export default function App() {
 		[],
 	);
 
-	const handleFeedSelect = useCallback(
-		(path: string) => {
-			selectFile(path);
-		},
-		[selectFile],
-	);
-
-	const switchViewMode = useCallback(
-		(mode: NavViewMode) => {
-			setViewMode(mode);
-			window.api.setPref(VIEW_MODE_KEY, mode);
-		},
-		[],
-	);
-
 	const multiSelect = useMultiSelect(
 		flatItems,
 		selectFile,
@@ -478,15 +422,7 @@ export default function App() {
 	);
 
 	const cycleSortMode = useCallback(() => {
-		const setter =
-			viewMode === 'feed'
-				? setFeedSortMode
-				: setTreeSortMode;
-		const storageKey =
-			viewMode === 'feed'
-				? FEED_SORT_MODE_STORAGE_KEY
-				: TREE_SORT_MODE_STORAGE_KEY;
-		setter((currentMode) => {
+		setTreeSortMode((currentMode) => {
 			const currentIndex =
 				sortModeOrder.indexOf(currentMode);
 			const nextIndex =
@@ -496,12 +432,12 @@ export default function App() {
 				sortModeOrder[nextIndex] ??
 				currentMode;
 			window.api.setPref(
-				storageKey,
+				TREE_SORT_MODE_STORAGE_KEY,
 				newMode,
 			);
 			return newMode;
 		});
-	}, [viewMode]);
+	}, []);
 
 	const handlePlusClick = useCallback(
 		async (folderPath: string) => {
@@ -775,41 +711,6 @@ export default function App() {
 			);
 	}, [focusActiveSearch, selectFile, workspacePath]);
 
-	const renderViewModeToggle = () => (
-		<div className="nav-view-toggle">
-			<button
-				type="button"
-				className={`nav-view-toggle-button${viewMode === 'tree' ? ' active' : ''}`}
-				onClick={() => switchViewMode('tree')}
-				title="Tree view"
-			>
-				<TreeViewIcon
-					size={14}
-					weight={
-						viewMode === 'tree'
-							? 'fill'
-							: 'regular'
-					}
-				/>
-			</button>
-			<button
-				type="button"
-				className={`nav-view-toggle-button${viewMode === 'feed' ? ' active' : ''}`}
-				onClick={() => switchViewMode('feed')}
-				title="Feed view"
-			>
-				<List
-					size={14}
-					weight={
-						viewMode === 'feed'
-							? 'bold'
-							: 'regular'
-					}
-				/>
-			</button>
-		</div>
-	);
-
 	return (
 		<div className="app">
 			<div className="workspace-content">
@@ -827,111 +728,82 @@ export default function App() {
 				{!loading &&
 					!error &&
 					workspacePath && (
-					<>
-						<div style={{ display: viewMode === 'tree' ? 'contents' : 'none' }}>
-							<TreeView
-								flatItems={flatItems}
-								selectedPath={
-									selectedPath
-								}
-								selectedPaths={
-									multiSelect.selected
-								}
-								onItemClick={
-									multiSelect.handleClick
-								}
-								onToggleFolder={
-									toggleExpand
-								}
-								onCreateFile={
-									createFileInFolder
-								}
-								onPlusClick={
-									handlePlusClick
-								}
-								onDeleteFile={deleteFile}
-								sortMode={sortMode}
-								onCycleSortMode={
-									cycleSortMode
-								}
-								leadingContent={renderViewModeToggle()}
-								renamingPath={
-									inlineRename.renamingPath
-								}
-								renameValue={
-									inlineRename.renameValue
-								}
-								renameInputRef={
-									inlineRename.inputRef
-								}
-								onRenameChange={
-									inlineRename.setRenameValue
-								}
-								onRenameConfirm={
-									inlineRename.confirmRename
-								}
-								onRenameCancel={
-									inlineRename.cancelRename
-								}
-								dropTargetPath={
-									dragDrop.dropTargetPath
-								}
-								onDragStart={
-									stableDragStart
-								}
-								onDragOver={
-									dragDrop.handleDragOver
-								}
-								onDragLeave={
-									dragDrop.handleDragLeave
-								}
-								onDrop={
-									dragDrop.handleDrop
-								}
-								onDragEnd={
-									dragDrop.handleDragEnd
-								}
-								onSelectFolder={
-									selectFolder
-								}
-								onContextMenu={
-									handleContextMenu
-								}
-								workspacePath={
-									workspacePath
-								}
-								cursorPath={
-									multiSelect.cursor
-								}
-								isActive={viewMode === 'tree'}
-								searchRef={treeSearchRef}
-							/>
-						</div>
-						<div style={{ display: viewMode === 'feed' ? 'contents' : 'none' }}>
-							<SourcesFeed
-								workspacePath={
-									workspacePath
-								}
-								selectedPath={
-									selectedPath
-								}
-								sortMode={sortMode}
-								isActive={viewMode === 'feed'}
-								onSelectFile={
-									handleFeedSelect
-								}
-								onDeleteFile={
-									deleteFile
-								}
-								onCycleSortMode={
-									cycleSortMode
-								}
-								onDragStart={stableDragStart}
-								leadingContent={renderViewModeToggle()}
-								searchRef={feedSearchRef}
-							/>
-						</div>
-					</>
+					<TreeView
+						flatItems={flatItems}
+						selectedPath={
+							selectedPath
+						}
+						selectedPaths={
+							multiSelect.selected
+						}
+						onItemClick={
+							multiSelect.handleClick
+						}
+						onToggleFolder={
+							toggleExpand
+						}
+						onCreateFile={
+							createFileInFolder
+						}
+						onPlusClick={
+							handlePlusClick
+						}
+						onDeleteFile={deleteFile}
+						sortMode={sortMode}
+						onCycleSortMode={
+							cycleSortMode
+						}
+						renamingPath={
+							inlineRename.renamingPath
+						}
+						renameValue={
+							inlineRename.renameValue
+						}
+						renameInputRef={
+							inlineRename.inputRef
+						}
+						onRenameChange={
+							inlineRename.setRenameValue
+						}
+						onRenameConfirm={
+							inlineRename.confirmRename
+						}
+						onRenameCancel={
+							inlineRename.cancelRename
+						}
+						dropTargetPath={
+							dragDrop.dropTargetPath
+						}
+						onDragStart={
+							stableDragStart
+						}
+						onDragOver={
+							dragDrop.handleDragOver
+						}
+						onDragLeave={
+							dragDrop.handleDragLeave
+						}
+						onDrop={
+							dragDrop.handleDrop
+						}
+						onDragEnd={
+							dragDrop.handleDragEnd
+						}
+						onSelectFolder={
+							selectFolder
+						}
+						onContextMenu={
+							handleContextMenu
+						}
+						workspacePath={
+							workspacePath
+						}
+						cursorPath={
+							multiSelect.cursor
+						}
+						isActive
+						searchRef={treeSearchRef}
+					/>
 				)}
 
 				{!loading &&

@@ -10,7 +10,6 @@ export {
 	sortModeOrder,
 	SORT_MODE_STORAGE_KEY,
 	TREE_SORT_MODE_STORAGE_KEY,
-	FEED_SORT_MODE_STORAGE_KEY,
 } from './types';
 export {
 	formatRelativeTime,
