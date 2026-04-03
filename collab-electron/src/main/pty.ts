@@ -912,16 +912,6 @@ export async function discoverSessions(): Promise<DiscoveredSession[]> {
     }
   }
 
-  for (const orphan of tmuxSet) {
-    if (orphan.startsWith("collab-")) {
-      try {
-        tmuxExec("kill-session", "-t", orphan);
-      } catch {
-        // Already dead
-      }
-    }
-  }
-
   return result;
 }
 

@@ -101,6 +101,11 @@ if (process.platform === "win32") {
     writeFileSync(conptyAgentJs, content);
     console.log("Patched conpty_console_list_agent.js");
   }
+
+  // node-pty already ships Windows prebuilds and loads them directly from
+  // prebuilds/win32-*. Rebuilding during bun install is noisy in active
+  // worktrees because persistent PTY sidecars can keep .node files locked.
+  process.exit(0);
 }
 
 execSync("bun x electron-rebuild -f -w node-pty", { stdio: "inherit" });

@@ -21,12 +21,12 @@ export const SESSION_DIR = path.join(
 );
 function getSocketName(): string {
   const app = getApp();
-  if (app && !app.isPackaged) {
+  if ((app && !app.isPackaged) || import.meta.env?.DEV) {
     return DEV_WORKTREE_ID
       ? `collab-dev-${DEV_WORKTREE_ID}`
       : "collab-dev";
   }
-  return "collab";
+  return "collaborator-app";
 }
 
 export { getSocketName };

@@ -71,6 +71,10 @@ describe("tmux helpers", () => {
       () => deleteSessionMeta("nonexistent-id"),
     ).not.toThrow();
   });
+
+  test("getSocketName uses an app-specific namespace outside dev", () => {
+    expect(getSocketName()).toBe("collaborator-app");
+  });
 });
 
 describe("pty lifecycle via tmux", () => {
@@ -144,16 +148,21 @@ describe("discoverSessions", () => {
     expect(readSessionMeta(fakeId)).toBeNull();
   });
 
-  test("kills orphan tmux sessions without metadata", async () => {
+  test("ignores orphan tmux sessions without metadata", async () => {
     // Create a session, then delete its metadata
     const { sessionId } = await createSession("/tmp");
     killAll();
     deleteSessionMeta(sessionId);
 
-    // discoverSessions should kill the orphan
-    await discoverSessions();
+    // discoverSessions must not mutate sessions it cannot prove it owns.
+    const discovered = await discoverSessions();
 
-    // Verify tmux session is gone
+    // The orphan should not be returned because it has no metadata.
+    expect(
+      discovered.some((s) => s.sessionId === sessionId),
+    ).toBe(false);
+
+    // Verify the tmux session is still alive.
     const name = tmuxSessionName(sessionId);
     let alive = true;
     try {
@@ -161,7 +170,11 @@ describe("discoverSessions", () => {
     } catch {
       alive = false;
     }
-    expect(alive).toBe(false);
+    expect(alive).toBe(true);
+
+    try {
+      tmuxExec("kill-session", "-t", name);
+    } catch {}
   });
 });
 
