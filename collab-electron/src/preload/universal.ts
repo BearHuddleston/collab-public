@@ -132,19 +132,6 @@ ipcRenderer.on("canvas-opacity", (_event: unknown, value: number) => {
   );
 });
 
-// -- Workspace-changed buffer ----------------------------------------
-// Buffer workspace-changed messages that arrive before React registers
-// its onWorkspaceChanged listener (race between webview IPC delivery
-// and useEffect running in the guest page).
-let bufferedWorkspacePath: string | null = null;
-const wsChangedBuffer = (
-  _event: unknown,
-  path: string,
-) => {
-  bufferedWorkspacePath = path;
-};
-ipcRenderer.on("workspace-changed", wsChangedBuffer);
-
 // -- Nav-visibility buffer -------------------------------------------
 let bufferedNavVisible: boolean | null = null;
 const navVisBuffer = (
@@ -169,14 +156,12 @@ contextBridge.exposeInMainWorld("api", {
     ipcRenderer.invoke("pref:set", key, value),
   listTerminalTargets: () =>
     ipcRenderer.invoke("terminal:list-targets"),
-  getWorkspacePref: (key: string) =>
-    ipcRenderer.invoke("workspace-pref:get", key),
-  setWorkspacePref: (key: string, value: unknown) =>
-    ipcRenderer.invoke("workspace-pref:set", key, value),
+  getWorkspacePref: (key: string, workspacePath: string) =>
+    ipcRenderer.invoke("workspace-pref:get", { key, workspacePath }),
+  setWorkspacePref: (key: string, value: unknown, workspacePath: string) =>
+    ipcRenderer.invoke("workspace-pref:set", { key, value, workspacePath }),
 
   // Nav + Viewer
-  getSelectedFile: () =>
-    ipcRenderer.invoke("nav:get-selected-file"),
   selectFile: (path: string | null) =>
     ipcRenderer.send("nav:select-file", path),
 
@@ -448,23 +433,23 @@ contextBridge.exposeInMainWorld("api", {
     return () =>
       ipcRenderer.removeListener("fs-changed", handler);
   },
-  onWorkspaceChanged: (
-    cb: (workspacePath: string) => void,
-  ) => {
-    // Replay any message that arrived before this callback registered
-    if (bufferedWorkspacePath !== null) {
-      cb(bufferedWorkspacePath);
-      bufferedWorkspacePath = null;
-    }
-    // Replace the buffer listener with the real handler
-    ipcRenderer.removeListener("workspace-changed", wsChangedBuffer);
+  onWorkspaceAdded: (cb: (path: string) => void) => {
     const handler = (
       _event: unknown,
-      path: unknown,
-    ) => cb(path as string);
-    ipcRenderer.on("workspace-changed", handler);
+      path: string,
+    ) => cb(path);
+    ipcRenderer.on("workspace-added", handler);
     return () =>
-      ipcRenderer.removeListener("workspace-changed", handler);
+      ipcRenderer.removeListener("workspace-added", handler);
+  },
+  onWorkspaceRemoved: (cb: (path: string) => void) => {
+    const handler = (
+      _event: unknown,
+      path: string,
+    ) => cb(path);
+    ipcRenderer.on("workspace-removed", handler);
+    return () =>
+      ipcRenderer.removeListener("workspace-removed", handler);
   },
   onWikilinksUpdated: (cb: (paths: string[]) => void) => {
     const handler = (
