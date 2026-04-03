@@ -20,9 +20,31 @@ export interface UpdateState {
   error?: string;
 }
 
+/** True when `offered` is a genuine upgrade over `current` (semver). */
+export function isNewer(offered: string, current: string): boolean {
+  const parse = (v: string) =>
+    v.replace(/-.+$/, "").split(".").map(Number);
+  const [oMaj = 0, oMin = 0, oPat = 0] = parse(offered);
+  const [cMaj = 0, cMin = 0, cPat = 0] = parse(current);
+  if (oMaj !== cMaj) return oMaj > cMaj;
+  if (oMin !== cMin) return oMin > cMin;
+  if (oPat !== cPat) return oPat > cPat;
+  // Same major.minor.patch: stable release is newer than a pre-release.
+  return !offered.includes("-") && current.includes("-");
+}
+
 const ERROR_RESET_DELAY_MS = 30_000;
 const CHECK_INTERVAL_MS = 60 * 60 * 1000;
 const INITIAL_CHECK_DELAY_MS = 5_000;
+
+function isMissingReleaseMetadataError(message: string): boolean {
+  if (process.platform !== "linux") {
+    return false;
+  }
+  return /Cannot find latest-linux\.yml in the latest release artifacts/i.test(
+    message,
+  );
+}
 
 class UpdateManager {
   private state: UpdateState = { status: "idle" };
@@ -30,6 +52,14 @@ class UpdateManager {
   private errorResetTimeout: NodeJS.Timeout | null = null;
   private checkInterval: NodeJS.Timeout | null = null;
   private onBeforeQuit: (() => Promise<void>) | null = null;
+
+  private shouldIgnoreMissingReleaseMetadataError(message: string): boolean {
+    if (!isMissingReleaseMetadataError(message)) {
+      return false;
+    }
+    this.setState({ status: "idle", error: undefined });
+    return true;
+  }
 
   init(opts?: { onBeforeQuit?: () => Promise<void> }): void {
     if (this.initialized) return;
@@ -50,7 +80,13 @@ class UpdateManager {
     autoUpdater.logger = {
       info: (msg: string) => console.log(`[updater] ${msg}`),
       warn: (msg: string) => console.warn(`[updater] ${msg}`),
-      error: (msg: string) => console.error(`[updater] ${msg}`),
+      error: (msg: string) => {
+        if (isMissingReleaseMetadataError(msg)) {
+          console.warn("[updater] Release metadata missing; skipping update check");
+          return;
+        }
+        console.error(`[updater] ${msg}`);
+      },
       debug: (msg: string) => console.debug(`[updater] ${msg}`),
     };
 
@@ -59,6 +95,18 @@ class UpdateManager {
     });
 
     autoUpdater.on("update-available", (info) => {
+      // Guard against downgrades: a pre-release build (e.g. 0.7.0-beta.1)
+      // may see a stable release with a lower version (e.g. 0.6.1) in the
+      // update YAML and incorrectly offer it as an update.
+      const current = app.getVersion();
+      if (!isNewer(info.version, current)) {
+        console.log(
+          `[updater] Ignoring ${info.version} — not newer than ${current}`,
+        );
+        this.setState({ status: "idle" });
+        return;
+      }
+
       const releaseNotes =
         typeof info.releaseNotes === "string"
           ? info.releaseNotes
@@ -96,6 +144,9 @@ class UpdateManager {
     });
 
     autoUpdater.on("error", (err) => {
+      if (this.shouldIgnoreMissingReleaseMetadataError(err.message)) {
+        return;
+      }
       trackEvent("update_download_failed", { error: err.message });
       this.handleError(err.message);
     });
@@ -124,7 +175,11 @@ class UpdateManager {
     try {
       await autoUpdater.checkForUpdates();
     } catch (err) {
-      this.handleError((err as Error).message);
+      const message = (err as Error).message;
+      if (this.shouldIgnoreMissingReleaseMetadataError(message)) {
+        return;
+      }
+      this.handleError(message);
     }
   }
 

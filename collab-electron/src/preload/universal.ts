@@ -1,6 +1,7 @@
 import {
   contextBridge,
   ipcRenderer,
+  webUtils,
   type IpcRendererEvent,
 } from "electron";
 import type { ReplayMessage } from "@collab/shared/replay-types";
@@ -269,10 +270,12 @@ contextBridge.exposeInMainWorld("api", {
       "pty:create",
       { cwd, cols, rows, target, tileId },
     ),
-  ptyWrite: (sessionId: string, data: string) =>
-    ipcRenderer.invoke("pty:write", { sessionId, data }),
-  ptySendRawKeys: (sessionId: string, data: string) =>
-    ipcRenderer.invoke("pty:send-raw-keys", { sessionId, data }),
+  ptyWrite: (sessionId: string, data: string) => {
+    ipcRenderer.send("pty:write", { sessionId, data });
+  },
+  ptySendRawKeys: (sessionId: string, data: string) => {
+    ipcRenderer.send("pty:send-raw-keys", { sessionId, data });
+  },
   ptyResize: (
     sessionId: string,
     cols: number,
@@ -335,6 +338,11 @@ contextBridge.exposeInMainWorld("api", {
   offRunInTerminal: (cb: RunInTerminalCb) => {
     runInTerminalListeners.delete(cb);
   },
+
+  // File drop support
+  getPathForFile: (file: File): string => webUtils.getPathForFile(file),
+  isDirectory: (filePath: string): Promise<boolean> =>
+    ipcRenderer.invoke("fs:is-directory", filePath),
 
   // Cross-webview drag-and-drop
   setDragPaths: (paths: string[]) =>
