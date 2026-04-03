@@ -103,6 +103,13 @@ if (process.platform === "win32") {
   builderArgs.push("-c.npmRebuild=false");
 }
 
+// electron-builder's legacy Linux AppImage helper writes progress logs to
+// stdout on first download, which breaks the JSON channel it expects to parse.
+// Force the newer toolset to keep packaging stable on Linux.
+if (process.platform === "linux") {
+  builderArgs.push("-c.toolsets.appimage=1.0.2");
+}
+
 function targetArchitectures() {
   const arches = [];
   for (let i = 0; i < args.length; i++) {
