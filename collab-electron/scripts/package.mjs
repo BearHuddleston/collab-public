@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { cpSync, existsSync, mkdirSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { normalizeWindowsPath, resolvePackageBin } from "./local-bin.mjs";
 
@@ -101,6 +101,10 @@ function detectMismatchedToolchain(expectedName, packageName = expectedName) {
 // vanilla Node.js and cause posix_spawnp failures under Electron).
 if (process.platform === "win32") {
   builderArgs.push("-c.npmRebuild=false");
+  // Use an afterPack hook to install the correct-arch prebuilds into the
+  // staged app directory.  We cannot copy them into the live node_modules
+  // because the persistent PTY sidecar keeps conpty.node locked (EBUSY).
+  builderArgs.push("-c.afterPack=scripts/after-pack-pty.cjs");
 }
 
 // electron-builder's legacy Linux AppImage helper writes progress logs to
@@ -136,25 +140,6 @@ function targetArchitectures() {
   return [process.arch];
 }
 
-function installNodePtyPrebuilds(arch) {
-  if (process.platform === "win32" && arch === process.arch) {
-    console.log(`• node-pty prebuilds (${process.platform}-${arch}) already installed`);
-    return;
-  }
-
-  const tag = `${process.platform}-${arch}`;
-  const src = join(cwd, "node_modules", "node-pty", "prebuilds", tag);
-  const dst = join(cwd, "node_modules", "node-pty", "build", "Release");
-
-  if (!existsSync(src)) {
-    console.error(`No node-pty prebuilds for ${tag}`);
-    process.exit(1);
-  }
-
-  mkdirSync(dst, { recursive: true });
-  cpSync(src, dst, { recursive: true });
-  console.log(`• node-pty prebuilds (${tag}) → build/Release`);
-}
 
 const electronVite = detectMismatchedToolchain("electron-vite");
 const electronBuilder = detectMismatchedToolchain("electron-builder");
@@ -165,11 +150,9 @@ run(process.execPath, [electronVite, "build"]);
 
 // Package once per target arch.
 for (const arch of builtArches) {
-  // On Windows, install prebuilds since source compilation fails.
-  // On macOS, electron-builder's npmRebuild handles it.
-  if (process.platform === "win32") {
-    installNodePtyPrebuilds(arch);
-  }
+  // On macOS, electron-builder's npmRebuild handles native modules.
+  // On Windows, the afterPack hook (after-pack-pty.cjs) installs prebuilds
+  // into the staged output directory to avoid EBUSY on locked .node files.
   run(process.execPath, [electronBuilder, ...builderArgs, `--${arch}`]);
 }
 
