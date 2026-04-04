@@ -16,7 +16,8 @@ The canvas supports multiple terminal tiles, but none have a privileged, always-
 | Toggle shortcut | `Cmd+\` → `toggle-agent` | Most prominent shortcut goes to the primary interaction surface |
 | Left sidebar shortcut | `` Cmd+` `` → `cycle-sidebar` (closed → files → tiles → closed) | Replaces two dedicated toggles with a single cycler |
 | Unchanged shortcuts | `Cmd+P` (focus file search), `Cmd+K` (focus tile search), `Cmd+N` (new tile), `Cmd+W` (close tile), `Cmd+,` (settings) | These still open left sidebar to correct mode or act on canvas |
-| Panel manager generalization | Pass `validModes` array as config option to `createPanel()` | Left sidebar passes `["closed", "files", "tiles"]`; agent panel passes `["closed", "open"]`. Replaces hardcoded mode list in `initPrefs` |
+| Panel manager generalization | Pass `validModes` array and `prefKey` string as config options to `createPanel()` | Left sidebar passes `["closed", "files", "tiles"]` with prefKey `"sidebar-mode"`; agent panel passes `["closed", "open"]` with prefKey `"sidebar-mode-agent"`. Replaces hardcoded mode list and pref key |
+| Removed shortcut actions | Delete `toggle-files` and `toggle-tiles` actions from renderer; remove `panelManager.toggleFiles()` and `panelManager.toggleTiles()` methods | Replaced by `cycle-sidebar` — keeping them would create dead code paths |
 | Terminal type | Standard PTY session via existing node-pty sidecar | No special access or privileged IPC — same as canvas terminal tiles |
 | CWD | Pinned to `~/.collaborator/` | User-level config folder; future hooks integration will inject context here |
 | Webview lifecycle | Lazy init on first open, reused thereafter. Closing hides, doesn't destroy | Avoids teardown/rebuild cost on toggle |
@@ -64,19 +65,34 @@ Plus `#agent-toggle` (class `panel-toggle`, right edge pill button, same style a
 
 ### Panel manager changes
 
-`createPanel()` accepts a new `validModes` config option:
+`createPanel()` accepts two new config options — `validModes` (array of allowed mode strings) and `prefKey` (string used as the preference key for mode persistence):
 
 ```js
 // Left sidebar
-createPanel("nav", { validModes: ["closed", "files", "tiles"], ... })
+createPanel("nav", {
+    validModes: ["closed", "files", "tiles"],
+    prefKey: "sidebar-mode",
+    ...
+})
 
 // Agent sidebar
-createPanel("agent", { validModes: ["closed", "open"], ... })
+createPanel("agent", {
+    validModes: ["closed", "open"],
+    prefKey: "sidebar-mode-agent",
+    ...
+})
 ```
 
 - `initPrefs()` validates the stored mode against `validModes` instead of the hardcoded `["closed", "files", "tiles"]`
 - `toggle()` uses `validModes[1]` as the default open mode when coming from closed
+- `savePref()` calls inside mode-changing methods use `prefKey` instead of the hardcoded `"sidebar-mode"` string
+- Remove `toggleFiles()` and `toggleTiles()` methods — replaced by a `cycle()` method that advances through `validModes` (wrapping from last open mode back to closed)
 - All other panel manager behavior (resize, visibility, pref storage) works unchanged
+- Add `cycle()` method: advances mode through `validModes` in order. If closed, goes to `validModes[1]`; if at the last mode, wraps to closed. Used by the `cycle-sidebar` shortcut action
+
+### Focus surface integration
+
+Add `"agent"` to the `resolveSurface()` function in the renderer, mapping it to the agent terminal webview element. This lets `focusSurface("agent")` correctly focus the terminal when the panel opens.
 
 ### Shortcut remapping
 
@@ -90,7 +106,8 @@ Main process `TOGGLE_SHORTCUTS` in `index.ts`:
 Shell renderer `handleShortcut()`:
 
 - `toggle-agent`: calls `agentPanel.toggle()`
-- `cycle-sidebar`: cycles left sidebar through `closed → files → tiles → closed`
+- `cycle-sidebar`: calls `panelManager.cycle()` — advances left sidebar through `closed → files → tiles → closed`
+- Remove `toggle-files` and `toggle-tiles` action branches (replaced by `cycle-sidebar`)
 
 ### Terminal webview lifecycle
 
@@ -107,7 +124,7 @@ Shell renderer `handleShortcut()`:
 | Preference key | Type | Purpose |
 |---------------|------|---------|
 | `panel-width-agent` | `number` | Panel width in pixels |
-| `agent-visible` | `boolean` | Whether panel was open at quit |
+| `sidebar-mode-agent` | `string` | Panel mode: `"closed"` or `"open"` (consistent with left sidebar's string-based mode persistence) |
 | `agent-pty-session` | `string` | PTY session ID for reconnection |
 
 ## Out of scope
