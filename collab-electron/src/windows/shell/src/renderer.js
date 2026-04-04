@@ -406,6 +406,9 @@ async function init() {
 			"canvas-opacity", opacity,
 		);
 		tileListWebview.send("canvas-opacity", opacity);
+		if (agentTermWebview) {
+			agentTermWebview.send("canvas-opacity", opacity);
+		}
 	};
 	broadcastCanvasOpacity();
 
@@ -591,14 +594,17 @@ async function init() {
 		const panelsEl = document.getElementById("panels");
 		panelsEl.inert = inert;
 		navToggle.inert = inert;
+		agentToggle.inert = inert;
 		wsAddBtn.inert = inert;
 	}
 
 	function blurNonModalSurfaces() {
 		canvasEl.blur();
 		navToggle.blur();
+		agentToggle.blur();
 		singletonViewer.webview.blur();
 		workspaceManager.getNavWebview().webview.blur();
+		if (agentTermWebview) agentTermWebview.webview.blur();
 	}
 
 	// -- getAllWebviews aggregator --
