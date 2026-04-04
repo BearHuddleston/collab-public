@@ -15,8 +15,6 @@
 
 	<button type="button" id="nav-toggle" class="panel-toggle" aria-pressed="true" aria-label="Hide Navigator"
 		title="Hide Navigator"></button>
-	<button type="button" id="terminal-toggle" class="panel-toggle panel-toggle-right" aria-pressed="true" aria-label="Hide Terminals"
-		title="Hide Terminals"></button>
 
 	<div id="panels">
 		<div id="panel-nav">
@@ -27,8 +25,9 @@
 					</svg>
 				</button>
 				<button type="button" id="update-pill" style="display: none;"></button>
-				<div id="workspace-add-row">
-					<button type="button" id="ws-add-btn" title="Add workspace">+</button>
+				<div id="sidebar-mode-control">
+					<button type="button" class="mode-btn active" data-mode="files">Files</button>
+					<button type="button" class="mode-btn" data-mode="tiles">Tiles</button>
 				</div>
 			</div>
 		</div>
@@ -39,8 +38,6 @@
 			<div id="edge-indicators"></div>
 			<div id="zoom-indicator">100%</div>
 		</div>
-		<div id="terminal-resize" class="resize-handle" data-panel="terminal"></div>
-		<div id="panel-terminal"></div>
 	</div>
 
 	<div id="settings-overlay">
