@@ -250,6 +250,8 @@ export function updateTileTitle(dom, tile) {
 }
 
 export function startInlineRename(dom, tile, onCommit) {
+  const existing = dom.titleText.parentNode.querySelector(".tile-rename-input");
+  if (existing) return;
   const titleText = dom.titleText;
   const currentLabel = getTileLabel(tile);
   const currentName = currentLabel.parent
