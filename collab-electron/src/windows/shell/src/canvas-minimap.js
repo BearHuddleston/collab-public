@@ -226,7 +226,136 @@ export function createMinimap({ viewportEl, wrapperEl, viewportState, getTiles, 
 		getCanvas() { return canvas; },
 	};
 
-	// Interaction code will be added in Task 5
+	// -- Interaction --
+
+	let dragging = false;
+	let dragOffsetX = 0;
+	let dragOffsetY = 0;
+	let animRafId = null;
+
+	function getCanvasPoint(e) {
+		const rect = canvas.getBoundingClientRect();
+		return {
+			x: (e.clientX - rect.left) * (MINIMAP_W / rect.width),
+			y: (e.clientY - rect.top) * (MINIMAP_H / rect.height),
+		};
+	}
+
+	function isInsideViewportRect(mx, my) {
+		const vr = minimap.getViewportRect();
+		if (!vr) return false;
+		const tol = 4;
+		return mx >= vr.x - tol && mx <= vr.x + vr.w + tol &&
+			my >= vr.y - tol && my <= vr.y + vr.h + tol;
+	}
+
+	function panToMinimapPoint(mx, my) {
+		const world = minimap.minimapToWorld(mx, my);
+		const vw = canvasEl.clientWidth;
+		const vh = canvasEl.clientHeight;
+		const zoom = viewportState.zoom;
+		const targetPanX = vw / 2 - world.x * zoom;
+		const targetPanY = vh / 2 - world.y * zoom;
+		return { targetPanX, targetPanY };
+	}
+
+	function animatePanTo(targetX, targetY) {
+		if (animRafId) {
+			cancelAnimationFrame(animRafId);
+			animRafId = null;
+		}
+
+		const startX = viewportState.panX;
+		const startY = viewportState.panY;
+		const startTime = performance.now();
+		const DURATION = 150;
+
+		function easeOut(t) {
+			return 1 - Math.pow(1 - t, 3);
+		}
+
+		function step(now) {
+			const elapsed = now - startTime;
+			const t = Math.min(elapsed / DURATION, 1);
+			const e = easeOut(t);
+			viewport.setPan(
+				startX + (targetX - startX) * e,
+				startY + (targetY - startY) * e,
+			);
+			if (t < 1) {
+				animRafId = requestAnimationFrame(step);
+			} else {
+				animRafId = null;
+			}
+		}
+
+		animRafId = requestAnimationFrame(step);
+	}
+
+	canvas.addEventListener("pointerdown", (e) => {
+		e.stopPropagation();
+		const pt = getCanvasPoint(e);
+
+		if (isInsideViewportRect(pt.x, pt.y)) {
+			dragging = true;
+			const vr = minimap.getViewportRect();
+			dragOffsetX = pt.x - vr.x;
+			dragOffsetY = pt.y - vr.y;
+			canvas.setPointerCapture(e.pointerId);
+			canvas.style.cursor = "grabbing";
+		} else {
+			const { targetPanX, targetPanY } = panToMinimapPoint(pt.x, pt.y);
+			animatePanTo(targetPanX, targetPanY);
+		}
+	});
+
+	canvas.addEventListener("pointermove", (e) => {
+		e.stopPropagation();
+		if (dragging) {
+			const pt = getCanvasPoint(e);
+			const vr = minimap.getViewportRect();
+			if (!vr) return;
+			const newVpX = pt.x - dragOffsetX;
+			const newVpY = pt.y - dragOffsetY;
+			const centerMx = newVpX + vr.w / 2;
+			const centerMy = newVpY + vr.h / 2;
+			const world = minimap.minimapToWorld(centerMx, centerMy);
+			const vw = canvasEl.clientWidth;
+			const vh = canvasEl.clientHeight;
+			const zoom = viewportState.zoom;
+			viewport.setPan(
+				vw / 2 - world.x * zoom,
+				vh / 2 - world.y * zoom,
+			);
+		} else {
+			const pt = getCanvasPoint(e);
+			if (isInsideViewportRect(pt.x, pt.y)) {
+				canvas.style.cursor = "grab";
+			} else {
+				canvas.style.cursor = "crosshair";
+			}
+		}
+	});
+
+	canvas.addEventListener("pointerup", (e) => {
+		e.stopPropagation();
+		if (dragging) {
+			dragging = false;
+			canvas.releasePointerCapture(e.pointerId);
+			const pt = getCanvasPoint(e);
+			if (isInsideViewportRect(pt.x, pt.y)) {
+				canvas.style.cursor = "grab";
+			} else {
+				canvas.style.cursor = "crosshair";
+			}
+		}
+	});
+
+	canvas.addEventListener("wheel", (e) => {
+		e.stopPropagation();
+	});
+
+	canvas.style.cursor = "crosshair";
 
 	return minimap;
 }
