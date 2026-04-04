@@ -228,6 +228,15 @@ export function createTileManager({
 					onTerminalSessionCreated(tile);
 				}
 			}
+			if (event.channel === "pty-cwd-changed") {
+				const cwd = event.args[1];
+				if (cwd && cwd !== tile.autoTitle) {
+					tile.cwd = cwd;
+					tile.autoTitle = cwd;
+					updateTileTitle(tileDOMs.get(tile.id), tile);
+					saveCanvasDebounced();
+				}
+			}
 		});
 	}
 

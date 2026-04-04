@@ -390,6 +390,39 @@ function attachClient(
   return ptyProcess;
 }
 
+function osc7ShellHook(shell: string): string | null {
+  const base = path.basename(shell);
+  if (base === "zsh") {
+    return [
+      " __collab_osc7()",
+      '{ printf "\\e]7;file://%s%s\\a" "$HOST" "$PWD"; };',
+      "precmd_functions+=(__collab_osc7);",
+      "clear",
+    ].join(" ");
+  }
+  if (base === "bash" || base === "sh") {
+    return [
+      ' PROMPT_COMMAND=\'printf "\\e]7;file://%s%s\\a"',
+      '"$HOSTNAME" "$PWD"\'${PROMPT_COMMAND:+";$PROMPT_COMMAND"};',
+      "clear",
+    ].join(" ");
+  }
+  // fish emits OSC 7 by default — no hook needed
+  return null;
+}
+
+function injectOsc7Hook(
+  sessionId: string,
+  shell: string,
+): void {
+  const hook = osc7ShellHook(shell);
+  if (!hook) return;
+  // Delay to let the shell start and show its first prompt
+  setTimeout(() => {
+    writeToSession(sessionId, hook + "\n");
+  }, 300);
+}
+
 export async function createSession(
   cwd?: string,
   senderWebContentsId?: number,
@@ -445,6 +478,8 @@ export async function createSession(
     const session = sessions.get(sessionId)!;
     session.shell = shell;
     session.displayName = shellName;
+
+    injectOsc7Hook(sessionId, shell);
 
     return {
       sessionId,
@@ -511,6 +546,9 @@ export async function createSession(
   if (resolvedTarget.target === "powershell") {
     sidecarPowerShellSessionIds.add(sessionId);
   }
+
+  injectOsc7Hook(sessionId, resolvedTarget.command);
+
   return withOptionalFields({
     sessionId,
     shell: resolvedTarget.command,
