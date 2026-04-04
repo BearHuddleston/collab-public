@@ -85,7 +85,7 @@ async function init() {
 	const panelViewer = document.getElementById("panel-viewer");
 	const navResizeHandle = document.getElementById("nav-resize");
 	const navToggle = document.getElementById("nav-toggle");
-	const wsAddBtn = document.getElementById("ws-add-btn");
+	const wsAddBtn = document.getElementById("ws-add-btn"); // may be null if workspace UI removed
 	const settingsOverlay =
 		document.getElementById("settings-overlay");
 	const settingsBackdrop =
@@ -488,7 +488,7 @@ async function init() {
 		const panelsEl = document.getElementById("panels");
 		panelsEl.inert = inert;
 		navToggle.inert = inert;
-		wsAddBtn.inert = inert;
+		if (wsAddBtn) wsAddBtn.inert = inert;
 	}
 
 	function blurNonModalSurfaces() {
@@ -592,10 +592,12 @@ async function init() {
 
 	// -- Add workspace button --
 
-	wsAddBtn.addEventListener("click", async () => {
-		const result = await window.shellApi.workspaceAdd();
-		// Nav webview handles the update via workspace-added IPC
-	});
+	if (wsAddBtn) {
+		wsAddBtn.addEventListener("click", async () => {
+			const result = await window.shellApi.workspaceAdd();
+			// Nav webview handles the update via workspace-added IPC
+		});
+	}
 
 	document.addEventListener("focusin", (event) => {
 		if (!settingsModalOpen) return;
@@ -789,7 +791,7 @@ async function init() {
 				tileListWebview.send("focus-search");
 			});
 		} else if (action === "add-workspace") {
-			wsAddBtn.click();
+			if (wsAddBtn) wsAddBtn.click();
 		} else if (action === "new-tile") {
 			const rect = canvasEl.getBoundingClientRect();
 			const size = defaultSize("term");
