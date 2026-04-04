@@ -6,6 +6,7 @@ import {
 } from "./canvas-state.js";
 import {
 	createTileDOM, positionTile, updateTileTitle, getTileLabel,
+	startInlineRename,
 } from "./tile-renderer.js";
 import { toCollabFileUrl } from "@collab/shared/collab-file-url";
 import { workspaceRootMatch } from "@collab/shared/path-utils";
@@ -461,6 +462,20 @@ export function createTileManager({
 				}
 				spawnBrowserWebview(t);
 				saveCanvasImmediate();
+			},
+			onRename: (id) => {
+				const t = getTile(id);
+				const d = tileDOMs.get(id);
+				if (!t || !d) return;
+				startInlineRename(d, t, (newTitle) => {
+					if (newTitle === "") {
+						delete t.userTitle;
+					} else {
+						t.userTitle = newTitle;
+					}
+					updateTileTitle(d, t);
+					saveCanvasImmediate();
+				});
 			},
 		});
 

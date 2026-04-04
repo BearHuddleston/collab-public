@@ -1160,3 +1160,19 @@ body.platform-win {
 .tile-url-input::placeholder {
 	color: rgba(128, 128, 128, 0.5);
 }
+
+/* ── Tile rename inline input ── */
+
+.tile-rename-input {
+	font: inherit;
+	font-size: 12px;
+	background: var(--bg-secondary, #1e1e1e);
+	color: var(--text-primary, #fff);
+	border: 1px solid var(--border-focus, #007acc);
+	border-radius: 3px;
+	padding: 1px 4px;
+	outline: none;
+	width: 100%;
+	min-width: 60px;
+	box-sizing: border-box;
+}
