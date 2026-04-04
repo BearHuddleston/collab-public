@@ -78,12 +78,7 @@ Also remove:
 
 ### Nav toolbar changes
 
-**Current:**
-```
-┌──────────────────────────────────┐
-│ [workspace dropdown]          ⚙  │
-└──────────────────────────────────┘
-```
+The workspace dropdown is removed by the unified-workspace-treeview spec (workspaces become section headers in the tree). This spec replaces the now-empty toolbar area with the segmented control.
 
 **New:**
 ```
@@ -144,13 +139,15 @@ New React app: `src/windows/tile-list/`
 |-----|-----------|------------|
 | `Cmd+\` | `toggle-nav` | `cycle-sidebar` |
 | `Cmd+P` | *(unbound)* | `focus-file-search` |
-| `Cmd+K` | `focus-search` | `focus-tile-search` |
+| `Cmd+K` | `focus-search` | `focus-tile-search` (always tiles, regardless of current mode) |
 | `Cmd+`` | `toggle-terminal-list` | *(removed)* |
 
 **Renderer shortcut handler:**
 - `cycle-sidebar`: advance state machine (`closed → files → tiles → closed`), persist
 - `focus-file-search`: set mode to `files`, open sidebar if closed, focus search input in nav webview
 - `focus-tile-search`: set mode to `tiles`, open sidebar if closed, focus search input in tile-list webview
+
+**Breaking change:** The nav webview's internal `Cmd+K` handler (in `App.tsx`) must be removed. `Cmd+K` is now always captured by the main process and routed to tile search. File search is triggered by `Cmd+P` via `focus-file-search`, which the shell renderer forwards to the nav webview.
 
 ### Panel manager changes
 
