@@ -185,6 +185,7 @@ async function init() {
 		prefKey: "sidebar-mode",
 		getAllWebviews,
 		onVisibilityChanged(visible) {
+			panelViewer.classList.toggle("nav-open", visible);
 			if (visible) {
 				requestAnimationFrame(() => {
 					singletonViewer.send("nav-visibility", true);
@@ -285,6 +286,7 @@ async function init() {
 		prefKey: "sidebar-mode-agent",
 		getAllWebviews,
 		onVisibilityChanged(visible) {
+			panelViewer.classList.toggle("agent-open", visible);
 			if (visible) {
 				ensureAgentTerminal();
 				if (agentTermWebview) {

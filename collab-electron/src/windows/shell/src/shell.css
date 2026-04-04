@@ -4,13 +4,13 @@
 	--font-mono: 'Geist Mono';
 	--bg: rgb(248, 248, 248);
 	--bg-rgb: 248, 248, 248;
-	--canvas-bg: rgb(230, 230, 230);
+	--canvas-bg: rgb(240, 240, 240);
 	--canvas-bg-hi: rgb(244, 244, 244);
-	--canvas-bg-rgb: 230, 230, 230;
+	--canvas-bg-rgb: 240, 240, 240;
 	--canvas-opacity: 0.5;
 	--fg: rgb(32, 32, 32);
 	--border: rgb(206, 206, 206);
-	--tile-border: rgb(210, 210, 210);
+	--tile-border: rgb(198, 198, 198);
 	--muted: rgb(113, 113, 123);
 	--edge-dot: rgb(34, 160, 90);
 	--edge-dot-hover: rgb(40, 190, 105);
@@ -31,7 +31,7 @@
 	--canvas-bg-rgb: 24, 24, 24;
 	--fg: rgb(220, 220, 220);
 	--border: rgba(255, 255, 255, 0.2);
-	--tile-border: rgb(50, 50, 50);
+	--tile-border: rgb(70, 70, 70);
 	--muted: rgb(132, 132, 132);
 	--edge-dot: rgb(72, 210, 130);
 	--edge-dot-hover: rgb(90, 235, 150);
@@ -162,6 +162,21 @@ body.platform-win {
 	position: relative;
 	background: rgba(var(--canvas-bg-rgb), var(--canvas-opacity));
 	outline: none;
+	box-shadow: none;
+}
+
+#panel-viewer.nav-open {
+	box-shadow: inset 8px 0 12px -6px rgba(0, 0, 0, 0.15);
+}
+
+#panel-viewer.agent-open {
+	box-shadow: inset -8px 0 12px -6px rgba(0, 0, 0, 0.15);
+}
+
+#panel-viewer.nav-open.agent-open {
+	box-shadow:
+		inset 8px 0 12px -6px rgba(0, 0, 0, 0.15),
+		inset -8px 0 12px -6px rgba(0, 0, 0, 0.15);
 }
 
 .platform-win #panel-viewer {
@@ -959,7 +974,7 @@ body.platform-win {
 .tile-resize-handle.edge-s {
 	left: 8px;
 	right: 8px;
-	height: 6px;
+	height: 9px;
 	cursor: ns-resize;
 }
 
@@ -967,55 +982,55 @@ body.platform-win {
 .tile-resize-handle.edge-w {
 	top: 8px;
 	bottom: 8px;
-	width: 6px;
+	width: 9px;
 	cursor: ew-resize;
 }
 
 .tile-resize-handle.edge-n {
-	top: -3px;
+	top: -4.5px;
 }
 
 .tile-resize-handle.edge-s {
-	bottom: -3px;
+	bottom: -4.5px;
 }
 
 .tile-resize-handle.edge-e {
-	right: -3px;
+	right: -4.5px;
 }
 
 .tile-resize-handle.edge-w {
-	left: -3px;
+	left: -4.5px;
 }
 
 .tile-resize-handle.corner-nw,
 .tile-resize-handle.corner-ne,
 .tile-resize-handle.corner-sw,
 .tile-resize-handle.corner-se {
-	width: 12px;
-	height: 12px;
+	width: 18px;
+	height: 18px;
 }
 
 .tile-resize-handle.corner-nw {
-	top: -3px;
-	left: -3px;
+	top: -4.5px;
+	left: -4.5px;
 	cursor: nwse-resize;
 }
 
 .tile-resize-handle.corner-ne {
-	top: -3px;
-	right: -3px;
+	top: -4.5px;
+	right: -4.5px;
 	cursor: nesw-resize;
 }
 
 .tile-resize-handle.corner-sw {
-	bottom: -3px;
-	left: -3px;
+	bottom: -4.5px;
+	left: -4.5px;
 	cursor: nesw-resize;
 }
 
 .tile-resize-handle.corner-se {
-	bottom: -3px;
-	right: -3px;
+	bottom: -4.5px;
+	right: -4.5px;
 	cursor: nwse-resize;
 }
 
