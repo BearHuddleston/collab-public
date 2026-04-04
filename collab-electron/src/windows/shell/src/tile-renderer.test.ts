@@ -84,10 +84,14 @@ describe("getTileLabel", () => {
     expect(label.parent).toBe("/Users/me/projects/");
   });
 
-  test("returns Terminal when no title fields set", () => {
-    const label = getTileLabel({ type: "term", id: "t1" });
-    expect(label.name).toBe("Terminal");
-    expect(label.parent).toBe("");
+  test("empty userTitle falls through to autoTitle", () => {
+    const label = getTileLabel({
+      type: "term", id: "t1",
+      userTitle: "",
+      autoTitle: "/Users/me/projects/app",
+    });
+    expect(label.name).toBe("app");
+    expect(label.parent).toBe("/Users/me/projects/");
   });
 
   test("returns hostname for browser tiles with URL", () => {
