@@ -202,6 +202,21 @@ function TerminalTab({
 			return true;
 		});
 
+		// OSC 7: shell reports current working directory
+		// Format: file://hostname/path or file:///path
+		term.parser.registerOscHandler(7, (data) => {
+			try {
+				const url = new URL(data);
+				if (url.protocol === "file:") {
+					const cwd = decodeURIComponent(url.pathname);
+					if (cwd) window.api.notifyCwdChanged(sessionId, cwd);
+				}
+			} catch {
+				// Malformed URL — ignore
+			}
+			return true;
+		});
+
 		term.onData((data: string) => {
 			window.api.ptyWrite(sessionId, data);
 		});

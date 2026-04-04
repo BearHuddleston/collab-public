@@ -309,6 +309,8 @@ contextBridge.exposeInMainWorld("api", {
   },
   notifyPtySessionId: (sessionId: string) =>
     ipcRenderer.sendToHost("pty-session-id", sessionId),
+  notifyCwdChanged: (sessionId: string, cwd: string) =>
+    ipcRenderer.sendToHost("pty-cwd-changed", sessionId, cwd),
   onCdTo: (cb: CdToCallback) => {
     cdToListeners.add(cb);
   },
