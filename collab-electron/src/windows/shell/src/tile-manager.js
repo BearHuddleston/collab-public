@@ -62,6 +62,8 @@ export function createTileManager({
 				ptySessionId: t.ptySessionId,
 				url: t.url,
 				zIndex: t.zIndex,
+				userTitle: t.userTitle,
+				autoTitle: t.autoTitle,
 			})),
 			viewport: {
 				panX: viewportState.panX,
@@ -629,6 +631,8 @@ export function createTileManager({
 						height: saved.height,
 						zIndex: saved.zIndex,
 						ptySessionId: saved.ptySessionId,
+						userTitle: saved.userTitle,
+						autoTitle: saved.autoTitle,
 					},
 				);
 				spawnTerminalWebview(tile);
