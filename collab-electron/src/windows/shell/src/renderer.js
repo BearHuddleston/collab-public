@@ -991,6 +991,12 @@ async function init() {
 	window.shellApi.onShortcut(handleShortcut);
 
 	window.addEventListener("keydown", (event) => {
+		if (!isFocusSearchShortcut(event)) return;
+		event.preventDefault();
+		handleShortcut("focus-file-search");
+	});
+
+	window.addEventListener("keydown", (event) => {
 		if (!event.metaKey || event.shiftKey || event.altKey) return;
 		if (event.key === "n") {
 			event.preventDefault();
