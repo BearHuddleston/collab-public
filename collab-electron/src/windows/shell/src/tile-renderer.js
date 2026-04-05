@@ -29,6 +29,7 @@ function resolveInput(raw) {
  * @param {((id: string) => void)|null} [callbacks.onOpenInViewer]
  * @param {((id: string, url: string) => void)|null} [callbacks.onNavigate]
  * @param {((id: string) => void)|null} [callbacks.onRename]
+ * @param {((id: string) => void)|null} [callbacks.onDuplicate]
  */
 export function createTileDOM(tile, callbacks) {
   const container = document.createElement("div");
@@ -186,9 +187,12 @@ export function createTileDOM(tile, callbacks) {
       e.stopPropagation();
       const selected = await window.shellApi.showContextMenu([
         { id: "rename", label: "Rename" },
+        { id: "duplicate", label: "Duplicate" },
       ]);
       if (selected === "rename" && callbacks.onRename) {
         callbacks.onRename(tile.id);
+      } else if (selected === "duplicate" && callbacks.onDuplicate) {
+        callbacks.onDuplicate(tile.id);
       }
     });
   }

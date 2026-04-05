@@ -289,6 +289,7 @@ export function attachMarquee(canvasEl, {
  */
 export function attachResize(
   container, tile, viewport, onUpdate, getAllWebviews, onFocus,
+  onResizeEnd,
 ) {
   const edges = ["n", "s", "e", "w"];
   const corners = ["nw", "ne", "sw", "se"];
@@ -362,6 +363,7 @@ export function attachResize(
         }
         snapToGrid(tile);
         onUpdate();
+        if (onResizeEnd) onResizeEnd(tile);
         if (onFocus) onFocus();
       }
 

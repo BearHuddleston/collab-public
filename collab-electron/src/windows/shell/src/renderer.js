@@ -84,6 +84,7 @@ async function init() {
 		prefAgentWidth, prefAgentMode,
 		prefAgentPty,
 		prefLastTerminalCwd,
+		prefLastTerminalSize,
 	] = await Promise.all([
 		window.shellApi.getViewConfig(),
 		window.shellApi.workspaceList(),
@@ -93,9 +94,11 @@ async function init() {
 		window.shellApi.getPref("sidebar-mode-agent"),
 		window.shellApi.getPref("agent-pty-session"),
 		window.shellApi.getPref("lastTerminalCwd"),
+		window.shellApi.getPref("lastTerminalSize"),
 	]);
 
 	let lastTerminalCwd = prefLastTerminalCwd || null;
+	let lastTerminalSize = prefLastTerminalSize || null;
 
 	function getTerminalCwd() {
 		return lastTerminalCwd || workspaceData.workspaces[0];
@@ -104,6 +107,16 @@ async function init() {
 	function setLastTerminalCwd(cwd) {
 		lastTerminalCwd = cwd;
 		window.shellApi.setPref("lastTerminalCwd", cwd);
+	}
+
+	function getTerminalSize() {
+		if (lastTerminalSize) return { ...lastTerminalSize };
+		return defaultSize("term");
+	}
+
+	function setLastTerminalSize(width, height) {
+		lastTerminalSize = { width, height };
+		window.shellApi.setPref("lastTerminalSize", lastTerminalSize);
 	}
 
 	// DOM elements
@@ -518,6 +531,9 @@ async function init() {
 		onTerminalCwdChanged(cwd) {
 			setLastTerminalCwd(cwd);
 		},
+		onTerminalTileResized(width, height) {
+			setLastTerminalSize(width, height);
+		},
 		onTerminalTileClosed() {
 			syncTileList();
 		},
@@ -744,8 +760,9 @@ async function init() {
 		const cy = (screenY - viewportState.panY) / viewportState.zoom;
 
 		const cwd = getTerminalCwd();
+		const size = getTerminalSize();
 		const tile = tileManager.createCanvasTile(
-			"term", cx, cy, { cwd },
+			"term", cx, cy, { cwd, ...size },
 		);
 		tileManager.spawnTerminalWebview(tile, true);
 		tileManager.saveCanvasImmediate();
@@ -774,8 +791,9 @@ async function init() {
 
 		if (selected === "new-terminal") {
 			const cwd = getTerminalCwd();
+			const size = getTerminalSize();
 			const tile = tileManager.createCanvasTile(
-				"term", cx, cy, { cwd },
+				"term", cx, cy, { cwd, ...size },
 			);
 			tileManager.spawnTerminalWebview(tile, true);
 			tileManager.saveCanvasImmediate();
@@ -984,7 +1002,7 @@ async function init() {
 			window.shellApi.workspaceAdd();
 		} else if (action === "new-tile") {
 			const rect = canvasEl.getBoundingClientRect();
-			const size = defaultSize("term");
+			const size = getTerminalSize();
 			const cx =
 				(rect.width / 2 - viewportState.panX) /
 				viewportState.zoom - size.width / 2;
@@ -993,7 +1011,7 @@ async function init() {
 				viewportState.zoom - size.height / 2;
 			const cwd = getTerminalCwd();
 			const tile = tileManager.createCanvasTile(
-				"term", cx, cy, { cwd },
+				"term", cx, cy, { cwd, ...size },
 			);
 			tileManager.spawnTerminalWebview(tile, true);
 			tileManager.saveCanvasImmediate();
@@ -1093,7 +1111,7 @@ async function init() {
 				if (channel === "open-terminal") {
 					const cwd = args[0];
 					setLastTerminalCwd(cwd);
-					const size = defaultSize("term");
+					const size = getTerminalSize();
 					const rect = canvasEl.getBoundingClientRect();
 					const cx =
 						(rect.width / 2 - viewportState.panX) /
@@ -1102,7 +1120,7 @@ async function init() {
 						(rect.height / 2 - viewportState.panY) /
 						viewportState.zoom - size.height / 2;
 					const tile = tileManager.createCanvasTile(
-						"term", cx, cy, { cwd },
+						"term", cx, cy, { cwd, ...size },
 					);
 					tileManager.spawnTerminalWebview(tile, true);
 					tileManager.saveCanvasImmediate();

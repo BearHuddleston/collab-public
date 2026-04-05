@@ -25,6 +25,7 @@ export function createTileManager({
 	onTerminalSessionCreated,
 	onTerminalCwdChanged,
 	onTerminalTileClosed,
+	onTerminalTileResized,
 	onTileFocused,
 	onTileDblClick,
 	onReposition,
@@ -478,6 +479,18 @@ export function createTileManager({
 				spawnBrowserWebview(t);
 				saveCanvasImmediate();
 			},
+			onDuplicate: (id) => {
+				const t = getTile(id);
+				if (!t) return;
+				const gap = 40;
+				const newTile = createCanvasTile("term", t.x + t.width + gap, t.y, {
+					cwd: t.cwd,
+					width: t.width,
+					height: t.height,
+				});
+				spawnTerminalWebview(newTile, true);
+				saveCanvasImmediate();
+			},
 			onRename: (id) => {
 				const t = getTile(id);
 				const d = tileDOMs.get(id);
@@ -541,6 +554,11 @@ export function createTileManager({
 			repositionAllTiles,
 			getAllWebviews,
 			() => focusCanvasTile(tile.id),
+			(t) => {
+				if (t.type === "term" && onTerminalTileResized) {
+					onTerminalTileResized(t.width, t.height);
+				}
+			},
 		);
 
 		tileLayer.appendChild(dom.container);
