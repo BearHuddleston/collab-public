@@ -272,6 +272,10 @@ body.platform-win {
 }
 
 #settings-btn {
+	position: absolute;
+	top: 6px;
+	right: 10px;
+	z-index: 601;
 	-webkit-app-region: no-drag;
 	display: flex;
 	align-items: center;
@@ -355,8 +359,9 @@ body.platform-win {
 	justify-content: center;
 	width: 100%;
 	font-family: var(--font-mono);
-	font-size: 16px;
+	font-size: 12px;
 	font-weight: 500;
+	gap: 4px;
 	color: var(--muted);
 	background: none;
 	border: 1px dashed color-mix(in srgb, var(--fg) 20%, var(--border));

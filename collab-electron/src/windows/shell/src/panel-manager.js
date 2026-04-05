@@ -173,7 +173,7 @@ export function createPanel(side, config) {
 	function initPrefs(prefWidth, prefMode) {
 		if (prefWidth != null) {
 			width = Number(prefWidth) || defaultWidth;
-			panel.style.flex = `0 0 ${width}px`;
+			prefCache[`panel-width-${side}`] = width;
 		}
 		if (prefMode != null && validModes.includes(prefMode)) {
 			mode = prefMode;

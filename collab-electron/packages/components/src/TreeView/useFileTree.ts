@@ -539,8 +539,46 @@ export function useFileTree(
 			kind?: 'workspace' | 'folder',
 		) => {
 			if (kind === 'workspace') {
-				const wasCollapsed =
-					!expandedWorkspaces.has(path);
+				const wasExpanded =
+					expandedWorkspaces.has(path);
+
+				if (recursive && wasExpanded) {
+					// Alt-click on expanded workspace: collapse all children, then the workspace
+					setExpandedDirs((prev) => {
+						const next = new Set(prev);
+						for (const p of prev) {
+							if (
+								p === path ||
+								isSubpath(path, p)
+							) {
+								next.delete(p);
+							}
+						}
+						saveExpandedDirs(next, path);
+						return next;
+					});
+					setExpandedWorkspaces((prev) => {
+						const next = new Set(prev);
+						next.delete(path);
+						saveExpandedWorkspaces(next);
+						return next;
+					});
+					return;
+				}
+
+				if (recursive && !wasExpanded) {
+					// Alt-click on collapsed workspace: expand workspace + all children recursively
+					setExpandedWorkspaces((prev) => {
+						const next = new Set(prev);
+						next.add(path);
+						saveExpandedWorkspaces(next);
+						return next;
+					});
+					expandRecursive(path);
+					return;
+				}
+
+				// Normal click: toggle workspace open/closed
 				setExpandedWorkspaces((prev) => {
 					const next = new Set(prev);
 					if (next.has(path)) {
@@ -551,7 +589,7 @@ export function useFileTree(
 					saveExpandedWorkspaces(next);
 					return next;
 				});
-				if (wasCollapsed) {
+				if (!wasExpanded) {
 					if (!dirContents.has(path)) {
 						loadDir(path);
 					}

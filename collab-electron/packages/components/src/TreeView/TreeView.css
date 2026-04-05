@@ -443,30 +443,18 @@
 	position: relative;
 }
 
-.workspace-row {
-	display: flex;
-	align-items: center;
-	gap: 6px;
-	padding: 6px 8px 4px;
-	cursor: default;
+.workspace-folder-row {
+	padding-top: 6px;
+	padding-bottom: 4px;
 	user-select: none;
 }
 
-.workspace-row:hover {
+.workspace-folder-row:hover {
 	background: var(--color-active);
 }
 
-.workspace-row.dimmed {
+.workspace-folder-row.dimmed {
 	opacity: 0.4;
-}
-
-.workspace-chevron {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	width: 12px;
-	flex-shrink: 0;
-	opacity: 0.5;
 }
 
 .workspace-label {

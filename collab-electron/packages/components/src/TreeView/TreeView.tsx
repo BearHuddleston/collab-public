@@ -95,6 +95,9 @@ interface FolderRowProps {
 	) => void;
 	onDragEnd?: () => void;
 	onSelectFolder?: (path: string) => void;
+	isWorkspace?: boolean;
+	isFirstWorkspace?: boolean;
+	dimmed?: boolean;
 }
 
 const FolderRow = React.memo(function FolderRow({
@@ -117,17 +120,29 @@ const FolderRow = React.memo(function FolderRow({
 	onDrop,
 	onDragEnd,
 	onSelectFolder,
+	isWorkspace = false,
+	isFirstWorkspace = false,
+	dimmed = false,
 }: FolderRowProps) {
-	const style: React.CSSProperties = {
-		paddingLeft: `${item.level * 16 + 8}px`,
-	};
+	const style: React.CSSProperties = isWorkspace
+		? {
+			paddingLeft: '8px',
+			borderTop: isFirstWorkspace
+				? 'none'
+				: '1px solid var(--border-subtle, var(--border))',
+		}
+		: {
+			paddingLeft: `${item.level * 16 + 8}px`,
+		};
+
+	const className = `collection-tree-row collection-folder-row${isDropTarget ? ' drop-target' : ''}${isWorkspace ? ' workspace-folder-row' : ''}${dimmed ? ' dimmed' : ''}`;
 
 	return (
 		<div
-			className={`collection-tree-row collection-folder-row${isDropTarget ? ' drop-target' : ''}`}
+			className={className}
 			style={style}
-			draggable
-			onDragStart={(e) =>
+			draggable={!isWorkspace}
+			onDragStart={isWorkspace ? undefined : (e) =>
 				onDragStart?.(e, item.path)
 			}
 			onDragOver={(e) =>
@@ -159,7 +174,7 @@ const FolderRow = React.memo(function FolderRow({
 					/>
 				)}
 			</span>
-			{isRenaming ? (
+			{isRenaming && !isWorkspace ? (
 				<input
 					ref={renameInputRef}
 					className="inline-rename-input"
@@ -183,6 +198,15 @@ const FolderRow = React.memo(function FolderRow({
 						e.stopPropagation()
 					}
 				/>
+			) : isWorkspace ? (
+				<div className="workspace-label">
+					<span className="workspace-parent">
+						{splitDisplayPath(item.path).parent}
+					</span>
+					<span className="workspace-name">
+						{item.name}
+					</span>
+				</div>
 			) : (
 				<span className="collection-tree-name">
 					{item.name}
@@ -236,75 +260,6 @@ const FolderRow = React.memo(function FolderRow({
 		</div>
 	);
 });
-
-interface WorkspaceRowProps {
-	item: FlatItem;
-	isFirst: boolean;
-	dimmed: boolean;
-	onToggle: () => void;
-	onContextMenu?: (
-		e: React.MouseEvent,
-		item: FlatItem | null,
-	) => void;
-}
-
-const WorkspaceRow = React.memo(
-	function WorkspaceRow({
-		item,
-		isFirst,
-		dimmed,
-		onToggle,
-		onContextMenu,
-	}: WorkspaceRowProps) {
-		const { parent } = splitDisplayPath(item.path);
-		const className =
-			'workspace-row' + (dimmed ? ' dimmed' : '');
-		return (
-			<div
-				className={className}
-				style={{
-					borderTop: isFirst
-						? 'none'
-						: '1px solid var(--border-subtle, var(--border))',
-				}}
-				onClick={onToggle}
-				onContextMenu={(e) => {
-					e.preventDefault();
-					onContextMenu?.(e, item);
-				}}
-			>
-				<span className="workspace-chevron">
-					{item.isExpanded ? (
-						<CaretDown
-							size={10}
-							weight="bold"
-						/>
-					) : (
-						<CaretRight
-							size={10}
-							weight="bold"
-						/>
-					)}
-				</span>
-				<div className="workspace-label">
-					<span className="workspace-parent">
-						{parent}
-					</span>
-					<span className="workspace-name">
-						{item.name}
-					</span>
-				</div>
-			</div>
-		);
-	},
-	(prev, next) =>
-		prev.item.id === next.item.id &&
-		prev.item.isExpanded === next.item.isExpanded &&
-		prev.item.name === next.item.name &&
-		prev.isFirst === next.isFirst &&
-		prev.dimmed === next.dimmed &&
-		prev.onContextMenu === next.onContextMenu,
-);
 
 export interface FileRowProps {
 	item: FlatItem;
@@ -862,19 +817,43 @@ export const TreeView: React.FC<
 							key={item.id}
 							className="workspace-group"
 						>
-							<WorkspaceRow
+							<FolderRow
 								item={item}
-								isFirst={isFirst}
-								dimmed={isDimmed}
-								onToggle={() =>
-									onToggleFolder(
-										item.path,
-										false,
-									)
+								onToggle={onToggleFolder}
+								onCreateFile={
+									onCreateFile
 								}
+								onPlusClick={
+									onPlusClick
+								}
+								rowHeight={
+									folderRowHeight
+								}
+								isRenaming={false}
+								renameValue=""
+								renameInputRef={{
+									current: null,
+								}}
+								onRenameChange={() => {}}
+								onRenameConfirm={() => {}}
+								onRenameCancel={() => {}}
 								onContextMenu={
 									onContextMenu
 								}
+								isDropTarget={
+									dropTargetPath ===
+									item.path
+								}
+								onDragOver={
+									onDragOver
+								}
+								onDragLeave={
+									onDragLeave
+								}
+								onDrop={onDrop}
+								isWorkspace
+								isFirstWorkspace={isFirst}
+								dimmed={isDimmed}
 							/>
 							{children}
 						</div>,
@@ -882,20 +861,44 @@ export const TreeView: React.FC<
 					i = nextI;
 				} else {
 					nodes.push(
-						<WorkspaceRow
+						<FolderRow
 							key={item.id}
 							item={item}
-							isFirst={isFirst}
-							dimmed={isDimmed}
-							onToggle={() =>
-								onToggleFolder(
-									item.path,
-									false,
-								)
+							onToggle={onToggleFolder}
+							onCreateFile={
+								onCreateFile
 							}
+							onPlusClick={
+								onPlusClick
+							}
+							rowHeight={
+								folderRowHeight
+							}
+							isRenaming={false}
+							renameValue=""
+							renameInputRef={{
+								current: null,
+							}}
+							onRenameChange={() => {}}
+							onRenameConfirm={() => {}}
+							onRenameCancel={() => {}}
 							onContextMenu={
 								onContextMenu
 							}
+							isDropTarget={
+								dropTargetPath ===
+								item.path
+							}
+							onDragOver={
+								onDragOver
+							}
+							onDragLeave={
+								onDragLeave
+							}
+							onDrop={onDrop}
+							isWorkspace
+							isFirstWorkspace={isFirst}
+							dimmed={isDimmed}
 						/>,
 					);
 				}
