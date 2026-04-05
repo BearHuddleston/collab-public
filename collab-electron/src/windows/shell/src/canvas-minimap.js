@@ -6,12 +6,12 @@ const MIN_TILE_H = 3;
 const MIN_EXTENT_FACTOR = 3;
 
 const TILE_COLORS = {
-	term: "#6366f1",
-	note: "#34d399",
-	code: "#fbbf24",
-	image: "#f472b6",
-	browser: "#38bdf8",
-	graph: "#a855f7",
+	term: "#4144e3",
+	note: "#0bbac6",
+	code: "#c9f82c",
+	image: "#e12b3f",
+	browser: "#9750e3",
+	graph: "#e28143",
 };
 
 const TILE_OPACITY = 0.6;
