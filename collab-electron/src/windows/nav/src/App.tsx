@@ -1,7 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+	useCallback,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from 'react';
 import {
-	TreeView,
-	useFileTree,
+	SearchSortControls,
 	useMultiSelect,
 	useInlineRename,
 	useDragDrop,
@@ -9,20 +14,30 @@ import {
 	TREE_SORT_MODE_STORAGE_KEY,
 	ENABLE_GRAPH_TILES,
 } from '@collab/components/TreeView';
+import { WorkspaceTree } from '@collab/components/TreeView/WorkspaceTree';
+import type { WorkspaceFileTreeHandle } from '@collab/components/TreeView/useWorkspaceFileTree';
 import type {
 	SortMode,
 	FlatItem,
 	SearchSortControlsHandle,
 } from '@collab/components/TreeView';
-import { displayBasename, parentPath } from '@collab/shared/path-utils';
+import {
+	saveExpandedWorkspaces,
+} from '@collab/components/TreeView/useFileTree';
+import {
+	displayBasename,
+	isSubpath,
+	parentPath,
+} from '@collab/shared/path-utils';
 
 const PLATFORM = window.api.getPlatform();
 
-const REVEAL_LABEL = PLATFORM === 'darwin'
-	? 'Reveal in Finder'
-	: PLATFORM === 'win32'
-		? 'Reveal in Explorer'
-		: 'Reveal in File Manager';
+const REVEAL_LABEL =
+	PLATFORM === 'darwin'
+		? 'Reveal in Finder'
+		: PLATFORM === 'win32'
+			? 'Reveal in Explorer'
+			: 'Reveal in File Manager';
 
 function ImportWebArticleModal({
 	folderPath,
@@ -41,8 +56,13 @@ function ImportWebArticleModal({
 
 	const handleImport = async () => {
 		if (!url.trim()) return;
-		if (typeof window.api.importWebArticle !== 'function') {
-			setError('Import not available — restart the app to load the updated preload.');
+		if (
+			typeof window.api.importWebArticle !==
+			'function'
+		) {
+			setError(
+				'Import not available — restart the app to load the updated preload.',
+			);
 			return;
 		}
 		setLoading(true);
@@ -75,7 +95,13 @@ function ImportWebArticleModal({
 				onClick={(e) => e.stopPropagation()}
 			>
 				<div className="create-item-modal-header">
-					<h3 style={{ fontSize: '15px', fontWeight: 500, margin: 0 }}>
+					<h3
+						style={{
+							fontSize: '15px',
+							fontWeight: 500,
+							margin: 0,
+						}}
+					>
 						Import Web Article
 					</h3>
 				</div>
@@ -104,11 +130,13 @@ function ImportWebArticleModal({
 						/>
 					</div>
 					{error && (
-						<p style={{
-							fontSize: '12px',
-							color: 'var(--destructive, #ef4444)',
-							margin: '-10px 0 12px',
-						}}>
+						<p
+							style={{
+								fontSize: '12px',
+								color: 'var(--destructive, #ef4444)',
+								margin: '-10px 0 12px',
+							}}
+						>
 							{error}
 						</p>
 					)}
@@ -154,6 +182,7 @@ export default function App() {
 	const [importModal, setImportModal] = useState<{
 		folderPath: string;
 	} | null>(null);
+	const [searchQuery, setSearchQuery] = useState('');
 
 	const workspaces = useMemo(
 		() =>
@@ -163,12 +192,65 @@ export default function App() {
 			})),
 		[workspacePaths],
 	);
+	const sortedWorkspaces = useMemo(
+		() =>
+			[...workspaces].sort((a, b) =>
+				a.name.localeCompare(b.name),
+			),
+		[workspaces],
+	);
 	const workspacePathsRef = useRef(workspacePaths);
 	workspacePathsRef.current = workspacePaths;
 
 	const [treeSortMode, setTreeSortMode] =
 		useState<SortMode>('alpha-desc');
 	const sortMode = treeSortMode;
+
+	// Workspace expand/collapse state
+	const [expandedWorkspaces, setExpandedWorkspaces] =
+		useState<Set<string>>(new Set());
+	const [pendingExpandAll, setPendingExpandAll] =
+		useState<Set<string>>(new Set());
+
+	// Refs for each workspace's imperative handle
+	const workspaceRefsMap = useRef(
+		new Map<
+			string,
+			React.RefObject<WorkspaceFileTreeHandle | null>
+		>(),
+	);
+
+	const getWorkspaceRef = useCallback(
+		(wsPath: string) => {
+			let ref =
+				workspaceRefsMap.current.get(wsPath);
+			if (!ref) {
+				ref =
+					React.createRef<WorkspaceFileTreeHandle>();
+				workspaceRefsMap.current.set(
+					wsPath,
+					ref,
+				);
+			}
+			return ref;
+		},
+		[],
+	);
+
+	// Assemble flat items lazily from workspace refs
+	const getAllFlatItems = useCallback(() => {
+		const items: FlatItem[] = [];
+		for (const ws of sortedWorkspaces) {
+			if (!expandedWorkspaces.has(ws.path))
+				continue;
+			const ref =
+				workspaceRefsMap.current.get(ws.path);
+			if (ref?.current) {
+				items.push(...ref.current.flatItems);
+			}
+		}
+		return items;
+	}, [sortedWorkspaces, expandedWorkspaces]);
 
 	const focusActiveSearch = useCallback(() => {
 		window.focus();
@@ -190,14 +272,64 @@ export default function App() {
 			});
 	}, []);
 
-	const {
-		flatItems,
-		toggleExpand,
-		expandFolder,
-		expandAncestors,
-	} = useFileTree(workspaces, sortMode);
-	const expandAncestorsRef = useRef(expandAncestors);
-	expandAncestorsRef.current = expandAncestors;
+	// Load persisted expanded workspaces
+	useEffect(() => {
+		window.api
+			.getPref('expanded_workspaces')
+			.then((stored) => {
+				if (
+					Array.isArray(stored) &&
+					stored.length > 0
+				) {
+					setExpandedWorkspaces(
+						new Set(stored as string[]),
+					);
+				} else {
+					// Default: expand all
+					setExpandedWorkspaces(
+						new Set(
+							workspacePaths.map(
+								(p) => p,
+							),
+						),
+					);
+				}
+			})
+			.catch(() => {});
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- one-time mount
+	}, []);
+
+	// When workspaces change, prune expanded state
+	const workspacesKey = workspacePaths.join('\0');
+	const prevWorkspacesKeyRef =
+		useRef(workspacesKey);
+
+	useEffect(() => {
+		const changed =
+			workspacesKey !==
+			prevWorkspacesKeyRef.current;
+		prevWorkspacesKeyRef.current = workspacesKey;
+
+		if (changed) {
+			const roots = new Set(workspacePaths);
+			setExpandedWorkspaces((prev) => {
+				const valid = new Set<string>();
+				for (const p of prev) {
+					if (roots.has(p)) valid.add(p);
+				}
+				if (valid.size === 0) return roots;
+				return valid;
+			});
+			// Clean up refs for removed workspaces
+			for (const key of workspaceRefsMap.current.keys()) {
+				if (!roots.has(key)) {
+					workspaceRefsMap.current.delete(
+						key,
+					);
+				}
+			}
+		}
+	}, [workspacesKey, workspacePaths]);
 
 	useEffect(() => {
 		window.api
@@ -214,24 +346,38 @@ export default function App() {
 
 	useEffect(() => {
 		const cleanupAdd =
-			window.api.onWorkspaceAdded((path: string) => {
-				setWorkspacePaths((prev) =>
-					prev.includes(path)
-						? prev
-						: [...prev, path],
-				);
-			});
+			window.api.onWorkspaceAdded(
+				(path: string) => {
+					setWorkspacePaths((prev) =>
+						prev.includes(path)
+							? prev
+							: [...prev, path],
+					);
+					setExpandedWorkspaces((prev) => {
+						const next = new Set(prev);
+						next.add(path);
+						saveExpandedWorkspaces(next);
+						return next;
+					});
+				},
+			);
 		const cleanupRemove =
-			window.api.onWorkspaceRemoved((path: string) => {
-				setWorkspacePaths((prev) =>
-					prev.filter((p) => p !== path),
-				);
-				setSelectedPath((current) =>
-					current?.startsWith(path + '/')
-						? null
-						: current,
-				);
-			});
+			window.api.onWorkspaceRemoved(
+				(path: string) => {
+					setWorkspacePaths((prev) =>
+						prev.filter(
+							(p) => p !== path,
+						),
+					);
+					setSelectedPath((current) =>
+						current?.startsWith(
+							path + '/',
+						)
+							? null
+							: current,
+					);
+				},
+			);
 		return () => {
 			cleanupAdd();
 			cleanupRemove();
@@ -242,7 +388,9 @@ export default function App() {
 		return window.api.onFileRenamed(
 			(oldPath, newPath) => {
 				setSelectedPath((current) =>
-					current === oldPath ? newPath : current,
+					current === oldPath
+						? newPath
+						: current,
 				);
 			},
 		);
@@ -260,11 +408,28 @@ export default function App() {
 		});
 	}, [focusActiveSearch]);
 
+	// Expand ancestors when a file is selected externally
 	useEffect(() => {
-		if (selectedPath) {
-			expandAncestorsRef.current(selectedPath);
-		}
-	}, [selectedPath]);
+		if (!selectedPath) return;
+		const ws = workspacePaths.find((p) =>
+			isSubpath(p, selectedPath),
+		);
+		if (!ws) return;
+
+		// Ensure workspace is expanded
+		setExpandedWorkspaces((prev) => {
+			if (prev.has(ws)) return prev;
+			const next = new Set(prev);
+			next.add(ws);
+			saveExpandedWorkspaces(next);
+			return next;
+		});
+
+		// Call expandAncestors on the workspace ref
+		const ref =
+			workspaceRefsMap.current.get(ws);
+		ref?.current?.expandAncestors(selectedPath);
+	}, [selectedPath, workspacePaths]);
 
 	useEffect(() => {
 		return window.api.onFilesDeleted((paths) => {
@@ -275,6 +440,34 @@ export default function App() {
 			);
 		});
 	}, []);
+
+	// Expand folder helper (used by drag-drop and create operations)
+	const expandFolder = useCallback(
+		(path: string) => {
+			// Find the workspace this path belongs to and notify it
+			// The workspace hook handles the actual expansion via its own state
+			// For the drag-drop timer-based expand, we need to trigger the right workspace
+			for (const ws of workspacePaths) {
+				if (
+					path === ws ||
+					isSubpath(ws, path)
+				) {
+					const ref =
+						workspaceRefsMap.current.get(
+							ws,
+						);
+					if (ref?.current) {
+						// expandAncestors also expands the target dir
+						ref.current.expandAncestors(
+							path + '/dummy',
+						);
+					}
+					break;
+				}
+			}
+		},
+		[workspacePaths],
+	);
 
 	async function createFileInFolder(
 		folderPath: string,
@@ -289,11 +482,18 @@ export default function App() {
 		const entries =
 			await window.api.readDir(folderPath);
 		const existingNames = new Set(
-			entries.map((e) => e.name.toLowerCase()),
+			entries.map((e) =>
+				e.name.toLowerCase(),
+			),
 		);
 
-		if (existingNames.has(fileName.toLowerCase())) {
-			const stem = fileName.replace(/\.md$/, '');
+		if (
+			existingNames.has(fileName.toLowerCase())
+		) {
+			const stem = fileName.replace(
+				/\.md$/,
+				'',
+			);
 			let n = 2;
 			while (
 				existingNames.has(
@@ -313,21 +513,28 @@ export default function App() {
 			'',
 		].join('\n');
 		expandFolder(folderPath);
-		await window.api.writeFile(filePath, frontmatter);
+		await window.api.writeFile(
+			filePath,
+			frontmatter,
+		);
 	}
 
 	async function createFolderInFolder(
-		parentPath: string,
+		parentFolder: string,
 	) {
 		let folderName = 'New Folder';
 		const entries =
-			await window.api.readDir(parentPath);
+			await window.api.readDir(parentFolder);
 		const existingNames = new Set(
-			entries.map((e) => e.name.toLowerCase()),
+			entries.map((e) =>
+				e.name.toLowerCase(),
+			),
 		);
 
 		if (
-			existingNames.has(folderName.toLowerCase())
+			existingNames.has(
+				folderName.toLowerCase(),
+			)
 		) {
 			let n = 2;
 			while (
@@ -340,9 +547,9 @@ export default function App() {
 			folderName = `New Folder ${n}`;
 		}
 
-		const folderPath = `${parentPath}/${folderName}`;
+		const folderPath = `${parentFolder}/${folderName}`;
 		await window.api.createDir(folderPath);
-		expandFolder(parentPath);
+		expandFolder(parentFolder);
 		inlineRename.startRename(
 			folderPath,
 			folderName,
@@ -351,7 +558,11 @@ export default function App() {
 
 	const deleteFile = useCallback(
 		async (path: string) => {
-			if (workspacePathsRef.current.includes(path))
+			if (
+				workspacePathsRef.current.includes(
+					path,
+				)
+			)
 				return;
 			await window.api.trashFile(path);
 		},
@@ -374,15 +585,21 @@ export default function App() {
 	);
 
 	const multiSelect = useMultiSelect(
-		flatItems,
+		getAllFlatItems,
 		selectFile,
 	);
 	const multiSelectRef = useRef(multiSelect);
 	multiSelectRef.current = multiSelect;
 
 	const inlineRename = useInlineRename(
-		async (oldPath: string, newName: string) => {
-			await window.api.renameFile(oldPath, newName);
+		async (
+			oldPath: string,
+			newName: string,
+		) => {
+			await window.api.renameFile(
+				oldPath,
+				newName,
+			);
 		},
 	);
 	const inlineRenameRef = useRef(inlineRename);
@@ -394,7 +611,10 @@ export default function App() {
 			targetFolder: string,
 		) => {
 			for (const p of sourcePaths) {
-				await window.api.moveFile(p, targetFolder);
+				await window.api.moveFile(
+					p,
+					targetFolder,
+				);
 			}
 		},
 		expandFolder,
@@ -458,7 +678,8 @@ export default function App() {
 			item: FlatItem | null,
 		) => {
 			const ms = multiSelectRef.current;
-			const wsPaths = workspacePathsRef.current;
+			const wsPaths =
+				workspacePathsRef.current;
 			const multiSelected =
 				ms.selected.size > 1;
 
@@ -477,7 +698,10 @@ export default function App() {
 				];
 			} else if (!item) {
 				menuItems = [
-					{ id: 'new-file', label: 'New File' },
+					{
+						id: 'new-file',
+						label: 'New File',
+					},
 					{
 						id: 'new-folder',
 						label: 'New Folder',
@@ -485,7 +709,10 @@ export default function App() {
 				];
 			} else if (item.kind === 'workspace') {
 				menuItems = [
-					{ id: 'new-file', label: 'New File' },
+					{
+						id: 'new-file',
+						label: 'New File',
+					},
 					{
 						id: 'new-folder',
 						label: 'New Folder',
@@ -526,7 +753,10 @@ export default function App() {
 					item.path,
 				);
 				menuItems = [
-					{ id: 'new-file', label: 'New File' },
+					{
+						id: 'new-file',
+						label: 'New File',
+					},
 					{
 						id: 'new-folder',
 						label: 'New Folder',
@@ -537,9 +767,18 @@ export default function App() {
 					},
 					...(!isRoot
 						? [
-								{ id: 'separator', label: '' },
-								{ id: 'rename', label: 'Rename' },
-								{ id: 'delete', label: 'Delete' },
+								{
+									id: 'separator',
+									label: '',
+								},
+								{
+									id: 'rename',
+									label: 'Rename',
+								},
+								{
+									id: 'delete',
+									label: 'Delete',
+								},
 							]
 						: []),
 					{ id: 'separator', label: '' },
@@ -566,8 +805,14 @@ export default function App() {
 				];
 			} else {
 				menuItems = [
-					{ id: 'rename', label: 'Rename' },
-					{ id: 'delete', label: 'Delete' },
+					{
+						id: 'rename',
+						label: 'Rename',
+					},
+					{
+						id: 'delete',
+						label: 'Delete',
+					},
 					{ id: 'separator', label: '' },
 					{
 						id: 'copy-path',
@@ -626,7 +871,9 @@ export default function App() {
 				case 'delete':
 					if (multiSelected) {
 						for (const path of ms.selected) {
-							if (wsPaths.includes(path))
+							if (
+								wsPaths.includes(path)
+							)
 								continue;
 							await window.api.trashFile(
 								path,
@@ -656,19 +903,27 @@ export default function App() {
 					break;
 				case 'reveal-in-finder':
 					if (item)
-						window.api.revealInFinder(item.path);
+						window.api.revealInFinder(
+							item.path,
+						);
 					break;
 				case 'terminal':
 					if (item)
 						window.api.openInTerminal(
 							item.kind === 'folder' ||
-								item.kind === 'workspace'
+								item.kind ===
+									'workspace'
 								? item.path
-								: parentPath(item.path),
+								: parentPath(
+										item.path,
+									),
 						);
 					break;
 				case 'remove-workspace':
-					if (item && item.kind === 'workspace')
+					if (
+						item &&
+						item.kind === 'workspace'
+					)
 						await window.api.workspaceRemoveByPath(
 							item.path,
 						);
@@ -678,11 +933,235 @@ export default function App() {
 		[expandFolder],
 	);
 
+	// Workspace toggle (normal + alt-click recursive)
+	const toggleWorkspace = useCallback(
+		(path: string, recursive: boolean) => {
+			setExpandedWorkspaces((prev) => {
+				const wasExpanded = prev.has(path);
+
+				if (recursive && wasExpanded) {
+					const wsRef =
+						workspaceRefsMap.current.get(
+							path,
+						);
+					wsRef?.current?.collapseAllDirs();
+					const next = new Set(prev);
+					next.delete(path);
+					saveExpandedWorkspaces(next);
+					return next;
+				}
+
+				if (recursive && !wasExpanded) {
+					setPendingExpandAll((p) => {
+						const next = new Set(p);
+						next.add(path);
+						return next;
+					});
+					const next = new Set(prev);
+					next.add(path);
+					saveExpandedWorkspaces(next);
+					return next;
+				}
+
+				const next = new Set(prev);
+				if (wasExpanded) {
+					next.delete(path);
+				} else {
+					next.add(path);
+				}
+				saveExpandedWorkspaces(next);
+				return next;
+			});
+		},
+		[],
+	);
+
+	const handleExpandAllComplete = useCallback(
+		(wsPath: string) => {
+			setPendingExpandAll((prev) => {
+				const next = new Set(prev);
+				next.delete(wsPath);
+				return next;
+			});
+		},
+		[],
+	);
+
+	// Keyboard navigation (arrow keys) — at App level
 	const selectedPathRef = useRef(selectedPath);
 	selectedPathRef.current = selectedPath;
-	const flatItemsRef = useRef(flatItems);
-	flatItemsRef.current = flatItems;
+	const lastSelectedIndexRef = useRef<number>(-1);
 
+	const containerRef =
+		useRef<HTMLDivElement>(null);
+
+	const navigateItems = useCallback(
+		(
+			direction: 'up' | 'down',
+			shiftKey: boolean,
+		) => {
+			const allNavigable: FlatItem[] = [];
+			for (const ws of sortedWorkspaces) {
+				if (!expandedWorkspaces.has(ws.path))
+					continue;
+				const ref =
+					workspaceRefsMap.current.get(
+						ws.path,
+					);
+				if (ref?.current) {
+					allNavigable.push(
+						...ref.current.navigableItems,
+					);
+				}
+			}
+			if (allNavigable.length === 0) return;
+
+			const effectivePath =
+				multiSelect.cursor ?? selectedPath;
+			let currentIndex =
+				allNavigable.findIndex(
+					(d) => d.path === effectivePath,
+				);
+
+			if (
+				currentIndex < 0 &&
+				lastSelectedIndexRef.current >= 0
+			) {
+				currentIndex = Math.min(
+					lastSelectedIndexRef.current,
+					allNavigable.length - 1,
+				);
+			}
+
+			let nextIndex: number;
+			if (direction === 'down') {
+				nextIndex =
+					currentIndex < 0
+						? 0
+						: Math.min(
+								currentIndex + 1,
+								allNavigable.length -
+									1,
+							);
+			} else {
+				nextIndex =
+					currentIndex < 0
+						? 0
+						: Math.max(
+								currentIndex - 1,
+								0,
+							);
+			}
+
+			lastSelectedIndexRef.current = nextIndex;
+			const next = allNavigable[nextIndex];
+			if (!next) return;
+
+			multiSelect.handleClick(next.path, {
+				metaKey: false,
+				shiftKey,
+			});
+
+			// Scroll into view
+			const container = containerRef.current;
+			const el = container?.querySelector(
+				`[data-item-id="${CSS.escape(next.path)}"]`,
+			);
+			if (el && container) {
+				const elRect =
+					el.getBoundingClientRect();
+				const boxRect =
+					container.getBoundingClientRect();
+				const top =
+					elRect.top - boxRect.top;
+				const bottom =
+					elRect.bottom - boxRect.top;
+
+				if (top < 0) {
+					container.scrollTop += top;
+				} else if (
+					bottom > container.clientHeight
+				) {
+					container.scrollTop +=
+						bottom -
+						container.clientHeight;
+				}
+			}
+		},
+		[
+			sortedWorkspaces,
+			expandedWorkspaces,
+			selectedPath,
+			multiSelect.cursor,
+			multiSelect.handleClick,
+		],
+	);
+
+	// Arrow key handler
+	useEffect(() => {
+		const handleKeyDown = (
+			e: KeyboardEvent,
+		) => {
+			if (
+				e.key !== 'ArrowUp' &&
+				e.key !== 'ArrowDown'
+			)
+				return;
+
+			const active = document.activeElement;
+			if (
+				active?.tagName === 'INPUT' ||
+				active?.tagName === 'TEXTAREA'
+			)
+				return;
+
+			e.preventDefault();
+			navigateItems(
+				e.key === 'ArrowDown'
+					? 'down'
+					: 'up',
+				e.shiftKey,
+			);
+		};
+
+		window.addEventListener(
+			'keydown',
+			handleKeyDown,
+		);
+		return () =>
+			window.removeEventListener(
+				'keydown',
+				handleKeyDown,
+			);
+	}, [navigateItems]);
+
+	// Scroll selected item into view
+	useEffect(() => {
+		if (!selectedPath || !containerRef.current)
+			return;
+		const el =
+			containerRef.current.querySelector(
+				`[data-item-id="${CSS.escape(selectedPath)}"]`,
+			);
+		if (!el) return;
+		const container = containerRef.current;
+		const elRect = el.getBoundingClientRect();
+		const boxRect =
+			container.getBoundingClientRect();
+		const top = elRect.top - boxRect.top;
+		const bottom = elRect.bottom - boxRect.top;
+
+		if (top < 0) {
+			container.scrollTop += top;
+		} else if (
+			bottom > container.clientHeight
+		) {
+			container.scrollTop +=
+				bottom - container.clientHeight;
+		}
+	}, [selectedPath]);
+
+	// F2, Delete, Escape key handlers
 	useEffect(() => {
 		const handler = (e: KeyboardEvent) => {
 			const active = document.activeElement;
@@ -697,7 +1176,8 @@ export default function App() {
 			const sel = selectedPathRef.current;
 
 			if (e.key === 'F2' && sel) {
-				const item = flatItemsRef.current.find(
+				const items = getAllFlatItems();
+				const item = items.find(
 					(i) => i.path === sel,
 				);
 				if (item) {
@@ -718,7 +1198,8 @@ export default function App() {
 				const wsPaths =
 					workspacePathsRef.current;
 				for (const path of ms.selected) {
-					if (wsPaths.includes(path)) continue;
+					if (wsPaths.includes(path))
+						continue;
 					void window.api.trashFile(path);
 				}
 				ms.clearSelection();
@@ -743,20 +1224,7 @@ export default function App() {
 				'keydown',
 				handler,
 			);
-	}, [focusActiveSearch, selectFile]);
-
-	const handleToggleFolder = useCallback(
-		(path: string, recursive: boolean) => {
-			const isWorkspace =
-				workspacePathsRef.current.includes(path);
-			toggleExpand(
-				path,
-				recursive,
-				isWorkspace ? 'workspace' : 'folder',
-			);
-		},
-		[toggleExpand],
-	);
+	}, [focusActiveSearch, selectFile, getAllFlatItems]);
 
 	return (
 		<div className="app">
@@ -775,100 +1243,175 @@ export default function App() {
 				{!loading &&
 					!error &&
 					workspacePaths.length > 0 && (
-					<TreeView
-						flatItems={flatItems}
-						workspaces={workspaces}
-						selectedPath={
-							selectedPath
-						}
-						selectedPaths={
-							multiSelect.selected
-						}
-						onItemClick={
-							multiSelect.handleClick
-						}
-						onToggleFolder={
-							handleToggleFolder
-						}
-						onCreateFile={
-							createFileInFolder
-						}
-						onPlusClick={
-							handlePlusClick
-						}
-						onDeleteFile={deleteFile}
-						sortMode={sortMode}
-						onCycleSortMode={
-							cycleSortMode
-						}
-						renamingPath={
-							inlineRename.renamingPath
-						}
-						renameValue={
-							inlineRename.renameValue
-						}
-						renameInputRef={
-							inlineRename.inputRef
-						}
-						onRenameChange={
-							inlineRename.setRenameValue
-						}
-						onRenameConfirm={
-							inlineRename.confirmRename
-						}
-						onRenameCancel={
-							inlineRename.cancelRename
-						}
-						dropTargetPath={
-							dragDrop.dropTargetPath
-						}
-						onDragStart={
-							stableDragStart
-						}
-						onDragOver={
-							dragDrop.handleDragOver
-						}
-						onDragLeave={
-							dragDrop.handleDragLeave
-						}
-						onDrop={
-							dragDrop.handleDrop
-						}
-						onDragEnd={
-							dragDrop.handleDragEnd
-						}
-						onSelectFolder={
-							selectFolder
-						}
-						onContextMenu={
-							handleContextMenu
-						}
-						cursorPath={
-							multiSelect.cursor
-						}
-						isActive
-						searchRef={treeSearchRef}
-						headerActions={
+						<div className="table-container items-table">
+							<SearchSortControls
+								ref={
+									treeSearchRef
+								}
+								searchQuery={
+									searchQuery
+								}
+								onSearchQueryChange={
+									setSearchQuery
+								}
+								sortMode={
+									sortMode
+								}
+								onCycleSortMode={
+									cycleSortMode
+								}
+								searchPlaceholder="Search  ⌘K"
+								onArrowNav={
+									navigateItems
+								}
+							/>
 							<div className="workspace-add-row">
 								<button
 									type="button"
 									className="ws-add-btn"
-									onClick={() => window.api.workspaceAdd()}
+									onClick={() =>
+										window.api.workspaceAdd()
+									}
 								>
-									+ Add workspace
+									+ Add
+									workspace
 								</button>
 							</div>
-						}
-					/>
-				)}
+							<div className="table-wrapper">
+								<div
+									ref={
+										containerRef
+									}
+									className="table-body-scroll scrollbar-hover"
+									onContextMenu={(
+										e,
+									) => {
+										if (
+											e.target ===
+											e.currentTarget
+										) {
+											e.preventDefault();
+											handleContextMenu(
+												e,
+												null,
+											);
+										}
+									}}
+								>
+									{sortedWorkspaces.map(
+										(
+											ws,
+											idx,
+										) => (
+											<WorkspaceTree
+												key={
+													ws.path
+												}
+												ref={getWorkspaceRef(
+													ws.path,
+												)}
+												workspace={
+													ws
+												}
+												isExpanded={expandedWorkspaces.has(
+													ws.path,
+												)}
+												onToggleExpand={
+													toggleWorkspace
+												}
+												selectedPath={
+													selectedPath
+												}
+												selectedPaths={
+													multiSelect.selected
+												}
+												onItemClick={
+													multiSelect.handleClick
+												}
+												onCreateFile={
+													createFileInFolder
+												}
+												onPlusClick={
+													handlePlusClick
+												}
+												onDeleteFile={
+													deleteFile
+												}
+												onContextMenu={
+													handleContextMenu
+												}
+												sortMode={
+													sortMode
+												}
+												renamingPath={
+													inlineRename.renamingPath
+												}
+												renameValue={
+													inlineRename.renameValue
+												}
+												renameInputRef={
+													inlineRename.inputRef
+												}
+												onRenameChange={
+													inlineRename.setRenameValue
+												}
+												onRenameConfirm={
+													inlineRename.confirmRename
+												}
+												onRenameCancel={
+													inlineRename.cancelRename
+												}
+												dropTargetPath={
+													dragDrop.dropTargetPath
+												}
+												onDragStart={
+													stableDragStart
+												}
+												onDragOver={
+													dragDrop.handleDragOver
+												}
+												onDragLeave={
+													dragDrop.handleDragLeave
+												}
+												onDrop={
+													dragDrop.handleDrop
+												}
+												onDragEnd={
+													dragDrop.handleDragEnd
+												}
+												onSelectFolder={
+													selectFolder
+												}
+												isFirstWorkspace={
+													idx ===
+													0
+												}
+												searchQuery={
+													searchQuery
+												}
+												initialExpandAll={pendingExpandAll.has(
+													ws.path,
+												)}
+												onExpandAllComplete={
+													handleExpandAllComplete
+												}
+											/>
+										),
+									)}
+								</div>
+							</div>
+						</div>
+					)}
 
 				{!loading &&
 					!error &&
 					workspacePaths.length === 0 && (
 						<div className="empty-state">
 							<p>
-								No workspace added. Use the
-								+ button above to add a folder.
+								No workspace added.
+								Use the + button
+								above to add a
+								folder.
 							</p>
 						</div>
 					)}

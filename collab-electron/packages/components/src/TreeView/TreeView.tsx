@@ -1,8 +1,6 @@
 import React, {
 	useCallback,
-	useEffect,
 	useLayoutEffect,
-	useMemo,
 	useRef,
 	useState,
 } from 'react';
@@ -14,7 +12,6 @@ import {
 	Graph,
 } from '@phosphor-icons/react';
 import type { FlatItem } from './useFileTree';
-import type { TreeNode } from '@collab/shared/types';
 import {
 	formatRelativeTime,
 	displayFileName,
@@ -23,42 +20,11 @@ import {
 	splitDisplayPath,
 } from '@collab/shared/path-utils';
 import type { SortMode } from './types';
-import { SearchSortControls } from './SearchSortControls';
-import type { SearchSortControlsHandle } from './SearchSortControls';
 import { getFileIcon } from './fileIcons';
 import { useImageThumbnail } from './useImageThumbnail';
 
 const ICON_SIZE = 14;
 export const ENABLE_GRAPH_TILES = false;
-
-function flattenAllFiles(
-	nodes: TreeNode[],
-	workspacePath: string,
-): FlatItem[] {
-	const items: FlatItem[] = [];
-	const prefix = workspacePath.length + 1;
-	function walk(children: TreeNode[]) {
-		for (const node of children) {
-			if (node.kind === 'file') {
-				items.push({
-					id: node.path,
-					kind: 'file',
-					level: 1,
-					name: node.path.slice(prefix),
-					path: node.path,
-					ctime: node.ctime,
-					mtime: node.mtime,
-					workspacePath,
-				});
-			}
-			if (node.children) {
-				walk(node.children);
-			}
-		}
-	}
-	walk(nodes);
-	return items;
-}
 
 interface FolderRowProps {
 	item: FlatItem;
@@ -103,7 +69,7 @@ interface FolderRowProps {
 	dimmed?: boolean;
 }
 
-const FolderRow = React.memo(function FolderRow({
+export const FolderRow = React.memo(function FolderRow({
 	item,
 	onToggle,
 	onCreateFile,
@@ -474,10 +440,8 @@ interface TreeViewProps {
 		item: FlatItem | null,
 	) => void;
 	onDeleteFile?: (path: string) => void;
-	onDeleteFiles?: (paths: string[]) => void;
 	sortMode: SortMode;
 	onCycleSortMode: () => void;
-	leadingContent?: React.ReactNode;
 	renamingPath?: string | null;
 	renameValue?: string;
 	renameInputRef?: React.RefObject<HTMLInputElement | null>;
@@ -500,12 +464,8 @@ interface TreeViewProps {
 	) => void;
 	onDragEnd?: () => void;
 	workspacePath?: string;
-	workspaces?: { path: string; name: string }[];
-	cursorPath?: string | null;
 	onSelectFolder?: (path: string) => void;
-	isActive?: boolean;
-	searchRef?: React.RefObject<SearchSortControlsHandle | null>;
-	headerActions?: React.ReactNode;
+	searchQuery?: string;
 }
 
 export const TreeView: React.FC<
@@ -521,8 +481,6 @@ export const TreeView: React.FC<
 	onContextMenu,
 	onDeleteFile,
 	sortMode,
-	onCycleSortMode,
-	leadingContent,
 	renamingPath,
 	renameValue,
 	renameInputRef,
@@ -536,127 +494,10 @@ export const TreeView: React.FC<
 	onDrop,
 	onDragEnd,
 	workspacePath,
-	workspaces,
-	cursorPath,
 	onSelectFolder,
-	isActive = true,
-	searchRef,
-	headerActions,
 }) => {
-	const [searchQuery, setSearchQuery] = useState('');
 	const [deleteConfirmId, setDeleteConfirmId] =
 		useState<string | null>(null);
-	const [allFiles, setAllFiles] = useState<FlatItem[] | null>(null);
-	const isSearching = searchQuery.trim().length > 0;
-
-	const workspacesKey =
-		workspaces?.map((ws) => ws.path).join('\0') ?? '';
-
-	useEffect(() => {
-		setAllFiles(null);
-	}, [workspacesKey]);
-
-	useEffect(() => {
-		if (!isSearching || !workspaces?.length) {
-			setAllFiles(null);
-			return;
-		}
-		if (allFiles) return;
-		let cancelled = false;
-		Promise.all(
-			workspaces.map(async (ws) => {
-				const tree: TreeNode[] =
-					await window.api.readTree({
-						root: ws.path,
-					});
-				return {
-					ws,
-					files: flattenAllFiles(
-						tree,
-						ws.path,
-					),
-				};
-			}),
-		).then((results) => {
-			if (cancelled) return;
-			const items: FlatItem[] = [];
-			for (const { ws, files } of results) {
-				items.push({
-					id: `ws:${ws.path}`,
-					kind: 'workspace',
-					level: 0,
-					name: ws.name,
-					path: ws.path,
-					isExpanded: true,
-				});
-				items.push(...files);
-			}
-			setAllFiles(items);
-		});
-		return () => {
-			cancelled = true;
-		};
-		// eslint-disable-next-line react-hooks/exhaustive-deps -- workspaces tracked via workspacesKey
-	}, [isSearching, workspacesKey, allFiles]);
-
-	const filteredItems = useMemo(() => {
-		if (!searchQuery.trim()) return flatItems;
-		const query = searchQuery.toLowerCase();
-
-		if (allFiles) {
-			// Flat search: workspace headers + matching files
-			const result: FlatItem[] = [];
-			let currentWs: FlatItem | null = null;
-			const pending: FlatItem[] = [];
-
-			for (const item of allFiles) {
-				if (item.kind === 'workspace') {
-					if (currentWs) {
-						result.push(
-							currentWs,
-							...pending,
-						);
-					}
-					currentWs = item;
-					pending.length = 0;
-				} else if (item.kind === 'file') {
-					const slash =
-						item.name.lastIndexOf('/');
-					const fileName =
-						slash >= 0
-							? item.name.slice(
-									slash + 1,
-								)
-							: item.name;
-					if (
-						fileName
-							.toLowerCase()
-							.includes(query)
-					) {
-						pending.push(item);
-					}
-				}
-			}
-			if (currentWs) {
-				result.push(currentWs, ...pending);
-			}
-			return result;
-		}
-
-		// Fallback while full tree loads: filter visible items
-		return flatItems.filter((item) => {
-			if (item.kind === 'workspace') return true;
-			if (item.kind === 'folder') return true;
-			return item.name
-				.toLowerCase()
-				.includes(query);
-		});
-	}, [flatItems, allFiles, searchQuery]);
-
-	const dimmedWorkspaces = useMemo(
-		() => new Set<string>(),
-		[],
-	);
 
 	const deleteConfirmRef = useRef(deleteConfirmId);
 	deleteConfirmRef.current = deleteConfirmId;
@@ -704,171 +545,7 @@ export const TreeView: React.FC<
 				el.getBoundingClientRect().height,
 			);
 		}
-	}, [folderRowHeight, filteredItems]);
-
-	useEffect(() => {
-		if (!selectedPath || !containerRef.current)
-			return;
-		const el = containerRef.current.querySelector(
-			`[data-item-id="${CSS.escape(selectedPath)}"]`,
-		);
-		if (!el) return;
-		const container = containerRef.current;
-		const elRect = el.getBoundingClientRect();
-		const boxRect =
-			container.getBoundingClientRect();
-		const top = elRect.top - boxRect.top;
-		const bottom = elRect.bottom - boxRect.top;
-
-		if (top < 0) {
-			container.scrollTop += top;
-		} else if (bottom > container.clientHeight) {
-			container.scrollTop +=
-				bottom - container.clientHeight;
-		}
-	}, [selectedPath, filteredItems]);
-
-	const lastSelectedIndexRef = useRef<number>(-1);
-
-	const navigableItems = useMemo(
-		() =>
-			filteredItems.filter(
-				(item) => item.kind === 'file',
-			),
-		[filteredItems],
-	);
-
-	useEffect(() => {
-		const idx = navigableItems.findIndex(
-			(d) => d.path === selectedPath,
-		);
-		if (idx >= 0)
-			lastSelectedIndexRef.current = idx;
-	}, [navigableItems, selectedPath]);
-
-	const navigateItems = useCallback(
-		(direction: 'up' | 'down', shiftKey: boolean) => {
-			if (navigableItems.length === 0) return;
-
-			const effectivePath =
-				cursorPath ?? selectedPath;
-			let currentIndex =
-				navigableItems.findIndex(
-					(d) => d.path === effectivePath,
-				);
-
-			if (
-				currentIndex < 0 &&
-				lastSelectedIndexRef.current >= 0
-			) {
-				currentIndex = Math.min(
-					lastSelectedIndexRef.current,
-					navigableItems.length - 1,
-				);
-			}
-
-			let nextIndex: number;
-			if (direction === 'down') {
-				nextIndex =
-					currentIndex < 0
-						? 0
-						: Math.min(
-								currentIndex + 1,
-								navigableItems.length -
-									1,
-							);
-			} else {
-				nextIndex =
-					currentIndex < 0
-						? 0
-						: Math.max(
-								currentIndex - 1,
-								0,
-							);
-			}
-
-			lastSelectedIndexRef.current = nextIndex;
-			const next = navigableItems[nextIndex];
-			if (!next) return;
-
-			onItemClick(next.path, {
-				metaKey: false,
-				shiftKey,
-			});
-
-			const container = containerRef.current;
-			const el = container?.querySelector(
-				`[data-item-id="${CSS.escape(next.path)}"]`,
-			);
-			if (el && container) {
-				const elRect =
-					el.getBoundingClientRect();
-				const boxRect =
-					container.getBoundingClientRect();
-				const stickyTop =
-					next.level * folderRowHeight;
-				const top =
-					elRect.top - boxRect.top;
-				const bottom =
-					elRect.bottom - boxRect.top;
-
-				if (top < stickyTop) {
-					container.scrollTop +=
-						top - stickyTop;
-				} else if (
-					bottom > container.clientHeight
-				) {
-					container.scrollTop +=
-						bottom -
-						container.clientHeight;
-				}
-			}
-		},
-		[
-			navigableItems,
-			selectedPath,
-			cursorPath,
-			onItemClick,
-			folderRowHeight,
-		],
-	);
-
-	useEffect(() => {
-		if (!isActive) return;
-
-		const handleKeyDown = (
-			e: KeyboardEvent,
-		) => {
-			if (
-				e.key !== 'ArrowUp' &&
-				e.key !== 'ArrowDown'
-			)
-				return;
-
-			const active = document.activeElement;
-			if (
-				active?.tagName === 'INPUT' ||
-				active?.tagName === 'TEXTAREA'
-			)
-				return;
-
-			e.preventDefault();
-			navigateItems(
-				e.key === 'ArrowDown' ? 'down' : 'up',
-				e.shiftKey,
-			);
-		};
-
-		window.addEventListener(
-			'keydown',
-			handleKeyDown,
-		);
-		return () =>
-			window.removeEventListener(
-				'keydown',
-				handleKeyDown,
-			);
-	}, [isActive, navigateItems]);
+	}, [folderRowHeight, flatItems]);
 
 	const renderItems = (
 		start: number,
@@ -877,120 +554,11 @@ export const TreeView: React.FC<
 		const nodes: React.ReactNode[] = [];
 		let i = start;
 
-		let workspaceIndex = 0;
-		while (i < filteredItems.length) {
-			const item = filteredItems[i]!;
+		while (i < flatItems.length) {
+			const item = flatItems[i]!;
 			if (item.level < minLevel) break;
 
-			if (item.kind === 'workspace') {
-				const isFirst = workspaceIndex === 0;
-				const isDimmed = dimmedWorkspaces.has(
-					item.path,
-				);
-				workspaceIndex++;
-				i++;
-				if (item.isExpanded) {
-					const [children, nextI] =
-						renderItems(
-							i,
-							item.level + 1,
-						);
-					nodes.push(
-						<div
-							key={item.id}
-							className="workspace-group"
-						>
-							<FolderRow
-								item={item}
-								onToggle={onToggleFolder}
-								onCreateFile={
-									onCreateFile
-								}
-								onPlusClick={
-									onPlusClick
-								}
-								rowHeight={
-									folderRowHeight
-								}
-								isRenaming={false}
-								renameValue=""
-								renameInputRef={{
-									current: null,
-								}}
-								onRenameChange={() => {}}
-								onRenameConfirm={() => {}}
-								onRenameCancel={() => {}}
-								onContextMenu={
-									onContextMenu
-								}
-								isDropTarget={
-									dropTargetPath ===
-									item.path
-								}
-								onDragOver={
-									onDragOver
-								}
-								onDragLeave={
-									onDragLeave
-								}
-								onDrop={onDrop}
-								isWorkspace
-								isFirstWorkspace={isFirst}
-								dimmed={isDimmed}
-							/>
-							{children}
-							{isSearching && children.length === 0 && (
-								<div className="search-no-matches">
-									No matching files
-								</div>
-							)}
-						</div>,
-					);
-					i = nextI;
-				} else {
-					nodes.push(
-						<FolderRow
-							key={item.id}
-							item={item}
-							onToggle={onToggleFolder}
-							onCreateFile={
-								onCreateFile
-							}
-							onPlusClick={
-								onPlusClick
-							}
-							rowHeight={
-								folderRowHeight
-							}
-							isRenaming={false}
-							renameValue=""
-							renameInputRef={{
-								current: null,
-							}}
-							onRenameChange={() => {}}
-							onRenameConfirm={() => {}}
-							onRenameCancel={() => {}}
-							onContextMenu={
-								onContextMenu
-							}
-							isDropTarget={
-								dropTargetPath ===
-								item.path
-							}
-							onDragOver={
-								onDragOver
-							}
-							onDragLeave={
-								onDragLeave
-							}
-							onDrop={onDrop}
-							isWorkspace
-							isFirstWorkspace={isFirst}
-							dimmed={isDimmed}
-						/>,
-					);
-				}
-			} else if (
+			if (
 				item.kind === 'folder' &&
 				item.isExpanded
 			) {
@@ -1190,68 +758,40 @@ export const TreeView: React.FC<
 	const [treeContent] = renderItems(0, 0);
 
 	return (
-		<div className="table-container items-table">
-			<SearchSortControls
-				ref={searchRef}
-				leadingContent={leadingContent}
-				searchQuery={searchQuery}
-				onSearchQueryChange={setSearchQuery}
-				sortMode={sortMode}
-				onCycleSortMode={onCycleSortMode}
-				searchPlaceholder="Search  ⌘K"
-				onArrowNav={navigateItems}
-			/>
-			{headerActions}
-			<div className="table-wrapper">
-				<div
-					ref={containerRef}
-					className="table-body-scroll scrollbar-hover"
-					onDragOver={
-						workspacePath
-							? (e) => {
-									if (
-										e.target !==
-										e.currentTarget
-									)
-										return;
-									onDragOver?.(
-										e,
-										workspacePath,
-									);
-								}
-							: undefined
-					}
-					onDrop={
-						workspacePath
-							? (e) => {
-									if (
-										e.target !==
-										e.currentTarget
-									)
-										return;
-									onDrop?.(
-										e,
-										workspacePath,
-									);
-								}
-							: undefined
-					}
-					onContextMenu={(e) => {
-						if (
-							e.target ===
-							e.currentTarget
-						) {
-							e.preventDefault();
-							onContextMenu?.(
+		<div
+			ref={containerRef}
+			onDragOver={
+				workspacePath
+					? (e) => {
+							if (
+								e.target !==
+								e.currentTarget
+							)
+								return;
+							onDragOver?.(
 								e,
-								null,
+								workspacePath,
 							);
 						}
-					}}
-				>
-					{treeContent}
-				</div>
-			</div>
+					: undefined
+			}
+			onDrop={
+				workspacePath
+					? (e) => {
+							if (
+								e.target !==
+								e.currentTarget
+							)
+								return;
+							onDrop?.(
+								e,
+								workspacePath,
+							);
+						}
+					: undefined
+			}
+		>
+			{treeContent}
 		</div>
 	);
 };
