@@ -1,3 +1,12 @@
+import type { Icon } from "@phosphor-icons/react";
+import {
+  Terminal,
+  Browser,
+  ChartLineUp,
+  Note,
+  Code,
+  Image,
+} from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
 import "./App.css";
 
@@ -22,13 +31,13 @@ function isTileEntry(value: unknown): value is TileEntry {
   );
 }
 
-const TYPE_ICONS: Record<TileType, string> = {
-  term: "\u25A1",
-  browser: "\uD83C\uDF10",
-  graph: "\uD83D\uDCC8",
-  note: "\uD83D\uDCC4",
-  code: "\uD83D\uDCC4",
-  image: "\uD83D\uDDBC\uFE0F",
+const TYPE_ICONS: Record<TileType, { icon: Icon; color: string }> = {
+  term: { icon: Terminal, color: "#7aab6e" },
+  browser: { icon: Browser, color: "#5c9bcf" },
+  graph: { icon: ChartLineUp, color: "#c8a35a" },
+  note: { icon: Note, color: "#8a7aab" },
+  code: { icon: Code, color: "#7a8aab" },
+  image: { icon: Image, color: "#c07a6e" },
 };
 
 function StatusBadge({ status }: { status: TileEntry["status"] }) {
@@ -55,13 +64,15 @@ function TileEntryRow({
       onDoubleClick={onDoubleClick}
     >
       <div className="tile-icon">
-        <span className="type-icon">{TYPE_ICONS[entry.type] || "\u25A1"}</span>
+        {(() => {
+          const def = TYPE_ICONS[entry.type];
+          const IconComp = def?.icon ?? Terminal;
+          const color = def?.color ?? "#7a8aab";
+          return <IconComp size={14} weight="regular" style={{ color }} />;
+        })()}
         <StatusBadge status={entry.status} />
       </div>
-      <div className="tile-info">
-        <div className="tile-title">{entry.title}</div>
-        <div className="tile-desc">{entry.description}</div>
-      </div>
+      <div className="tile-title">{entry.title}</div>
     </div>
   );
 }

@@ -1,4 +1,5 @@
 :root {
+  --nav-inset: 12px;
   --running-color: #34d399;
   --exited-color: #888;
   --focus-bg: rgba(255, 255, 255, 0.06);
@@ -24,7 +25,7 @@ body {
 
 .tile-list { display: flex; flex-direction: column; padding: 4px 0; }
 
-.tile-search { padding: 6px 10px; }
+.tile-search { padding: 6px var(--nav-inset); }
 
 .tile-search-input {
   width: 100%;
@@ -42,12 +43,11 @@ body {
 
 .tile-entry {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 6px;
-  padding: 6px 10px;
+  padding: 6px var(--nav-inset);
   cursor: pointer;
-  border-radius: 5px;
-  margin: 0 6px;
+  border-radius: 0;
   transition: background 80ms ease;
 }
 
@@ -62,10 +62,9 @@ body {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  margin-top: 1px;
 }
 
-.type-icon { font-size: 13px; line-height: 1; }
+.tile-icon svg { display: block; }
 
 .status-badge {
   position: absolute;
@@ -80,23 +79,14 @@ body {
 .badge-running { background: var(--running-color); }
 .badge-exited { background: var(--exited-color); }
 
-.tile-info { display: flex; flex-direction: column; min-width: 0; flex: 1; }
-
 .tile-title {
   font-weight: 500;
   font-size: 12px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
+  flex: 1;
 }
 
-.tile-desc {
-  font-size: 10px;
-  color: var(--muted, #666);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin-top: 1px;
-}
-
-.tile-empty { padding: 12px; color: var(--muted, #666); font-size: 11px; }
+.tile-empty { padding: 12px var(--nav-inset); color: var(--muted, #666); font-size: 11px; }

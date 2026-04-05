@@ -36,9 +36,14 @@ function saveExpandedDirs(
 	workspacePath?: string,
 ) {
 	if (!workspacePath) return;
+	const filtered = [...expanded].filter(
+		(p) =>
+			p === workspacePath ||
+			isSubpath(workspacePath, p),
+	);
 	window.api.setWorkspacePref(
 		'expanded_dirs',
-		[...expanded],
+		filtered,
 		workspacePath,
 	);
 }

@@ -21,6 +21,7 @@
 	--panel-agent-max: 1000;
 
 	--toolbar-height: 38px;
+	--nav-inset: 12px;
 }
 
 .dark {
@@ -231,7 +232,7 @@ body.platform-win {
 	align-items: center;
 	gap: 8px;
 	flex-shrink: 0;
-	padding: 8px 10px;
+	padding: 8px var(--nav-inset);
 	padding-top: calc(var(--toolbar-height) + 4px);
 }
 

@@ -8,6 +8,7 @@ button {
 
 :root {
 	--top-spacing: 0px;
+	--nav-inset: 12px;
 	--card: rgb(242, 242, 242);
 	--color-primary: var(--primary);
 	--color-text-secondary: color-mix(in srgb, var(--muted-foreground) 75%, var(--foreground) 25%);
@@ -60,7 +61,7 @@ body {
 }
 
 .workspace-content {
-	padding: 6px 4px 0px 6px;
+	padding: 6px var(--nav-inset) 0px var(--nav-inset);
 	display: flex;
 	flex-direction: column;
 	flex: 1;
@@ -129,7 +130,7 @@ button {
 
 /* Add workspace button */
 .workspace-add-row {
-	padding: 0 6px 8px 2px;
+	padding: 0 0 8px 0;
 	flex-shrink: 0;
 }
 
@@ -139,7 +140,6 @@ button {
 	justify-content: center;
 	width: 100%;
 	gap: 4px;
-	font-family: var(--font-mono);
 	font-size: 0.8rem;
 	font-weight: 400;
 	color: var(--muted-foreground);

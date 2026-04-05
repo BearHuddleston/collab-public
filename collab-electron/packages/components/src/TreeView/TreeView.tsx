@@ -129,7 +129,7 @@ const FolderRow = React.memo(function FolderRow({
 }: FolderRowProps) {
 	const style: React.CSSProperties = isWorkspace
 		? {
-			paddingLeft: '4px',
+			paddingLeft: '0px',
 			borderTop: isFirstWorkspace
 				? 'none'
 				: '1px solid color-mix(in srgb, var(--foreground) 8%, transparent)',
