@@ -865,17 +865,7 @@ body.platform-win {
 }
 
 .canvas-tile[data-tile-type="term"] {
-	background: transparent;
-}
-
-.canvas-tile[data-tile-type="term"] .tile-blur-backdrop {
-	position: absolute;
-	inset: 0;
-	z-index: -1;
-	backdrop-filter: blur(12px);
 	background: rgba(240, 240, 240, 0.5);
-	pointer-events: none;
-	will-change: backdrop-filter;
 }
 
 .canvas-tile[data-tile-type="term"] .tile-title-bar {
@@ -884,10 +874,6 @@ body.platform-win {
 }
 
 .dark .canvas-tile[data-tile-type="term"] {
-	background: transparent;
-}
-
-.dark .canvas-tile[data-tile-type="term"] .tile-blur-backdrop {
 	background: rgba(18, 18, 18, 0.5);
 }
 
