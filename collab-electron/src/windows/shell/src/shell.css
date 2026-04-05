@@ -864,20 +864,20 @@ body.platform-win {
 }
 
 .canvas-tile[data-tile-type="term"] {
-	background: rgb(248, 248, 248);
+	background: transparent;
 }
 
 .canvas-tile[data-tile-type="term"] .tile-title-bar {
-	background: rgb(248, 248, 248);
+	background: transparent;
 	color: rgba(0, 0, 0, 0.6);
 }
 
 .dark .canvas-tile[data-tile-type="term"] {
-	background: rgb(8, 8, 8);
+	background: transparent;
 }
 
 .dark .canvas-tile[data-tile-type="term"] .tile-title-bar {
-	background: rgb(8, 8, 8);
+	background: transparent;
 	color: rgba(255, 255, 255, 0.7);
 }
 

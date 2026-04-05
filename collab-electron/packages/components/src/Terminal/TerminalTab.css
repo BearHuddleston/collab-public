@@ -7,6 +7,10 @@
 	height: 100%;
 }
 
+.terminal-tab .xterm-viewport {
+	background: transparent !important;
+}
+
 /* Scrollbar styling for the xterm viewport */
 .terminal-tab .xterm-viewport::-webkit-scrollbar {
 	width: 7px;

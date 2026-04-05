@@ -45,6 +45,7 @@ function TerminalTab({
 			cursorBlink: true,
 			scrollback: 200000,
 			allowProposedApi: true,
+			allowTransparency: true,
 			macOptionIsMeta: false,
 		});
 
