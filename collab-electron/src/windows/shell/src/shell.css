@@ -536,20 +536,55 @@ body.platform-win {
 
 .panel-toggle {
 	position: fixed;
-	width: 6px;
-	height: 40px;
+	width: 7px;
+	height: 44px;
 	background: var(--muted);
 	border: none;
 	border-radius: 9999px;
 	cursor: pointer;
-	opacity: 0.4;
+	opacity: 0.6;
 	transition: opacity 0.1s ease-in-out;
 	padding: 0;
 	z-index: 9000;
 }
 
 .panel-toggle:hover {
-	opacity: 0.8;
+	opacity: 0.9;
+}
+
+/* ── Tooltips ── */
+
+#tooltip {
+	position: fixed;
+	z-index: 10000;
+	background: rgb(50, 50, 50);
+	border: 1px solid rgba(255, 255, 255, 0.12);
+	border-radius: 6px;
+	padding: 5px 10px;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 12px;
+	color: rgb(220, 220, 220);
+	white-space: nowrap;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+	pointer-events: none;
+	opacity: 0;
+	transition: opacity 0.15s ease-in-out;
+}
+
+#tooltip.visible {
+	opacity: 1;
+}
+
+#tooltip kbd {
+	background: rgba(255, 255, 255, 0.08);
+	border: 1px solid rgba(255, 255, 255, 0.06);
+	border-radius: 3px;
+	padding: 1px 5px;
+	font-size: 11px;
+	font-family: var(--font-mono);
+	color: rgba(220, 220, 220, 0.6);
 }
 
 /* ── Resize overlay ── */

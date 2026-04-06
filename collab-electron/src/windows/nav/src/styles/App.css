@@ -152,6 +152,17 @@ button {
 	transition: color 0.15s ease, border-color 0.15s ease;
 }
 
+.ws-add-kbd {
+	background: rgba(255, 255, 255, 0.08);
+	border: 1px solid rgba(255, 255, 255, 0.06);
+	border-radius: 3px;
+	padding: 1px 5px;
+	font-size: 0.7rem;
+	font-family: var(--font-mono);
+	color: rgba(220, 220, 220, 0.6);
+	margin-left: 4px;
+}
+
 .ws-add-btn:hover {
 	color: var(--foreground);
 	border-color: var(--foreground);

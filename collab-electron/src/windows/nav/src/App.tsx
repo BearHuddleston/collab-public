@@ -1258,7 +1258,8 @@ export default function App() {
 								onCycleSortMode={
 									cycleSortMode
 								}
-								searchPlaceholder="Search  ⌘K"
+								searchPlaceholder="Search"
+								searchShortcut={PLATFORM === "darwin" ? "Cmd+K" : "Ctrl+K"}
 								onArrowNav={
 									navigateItems
 								}
@@ -1271,8 +1272,12 @@ export default function App() {
 										window.api.workspaceAdd()
 									}
 								>
-									+ Add
-									workspace
+									+ Add workspace
+									<kbd className="ws-add-kbd">
+									{PLATFORM === "darwin"
+										? "Shift+Cmd+O"
+										: "Shift+Ctrl+O"}
+								</kbd>
 								</button>
 							</div>
 							<div className="table-wrapper">

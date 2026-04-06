@@ -1,4 +1,5 @@
 import "./shell.css";
+import "./tooltip.js";
 import {
 	tiles, getTile, defaultSize, inferTileType, tileAtPoint,
 	selectTile, clearSelection, getSelectedTiles,
@@ -986,7 +987,7 @@ async function init() {
 		if (action === "toggle-settings") {
 			window.shellApi.toggleSettings();
 		} else if (action === "sidebar-files") {
-			panelManager.toggleToMode("files");
+			panelManager.toggle();
 		} else if (action === "sidebar-tiles") {
 			panelManager.toggleToMode("tiles");
 		} else if (action === "toggle-agent") {
