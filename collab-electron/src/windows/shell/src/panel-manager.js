@@ -10,6 +10,7 @@
  * @param {number} config.defaultWidth - Default panel width in pixels
  * @param {1|-1} config.direction - Resize drag direction: 1=left panel, -1=right panel
  * @param {string[]} [config.validModes] - Ordered list of modes; first must be "closed", second is default open mode
+ * @param {string} [config.defaultMode] - Initial mode when no saved pref exists (defaults to validModes[1])
  * @param {string} [config.prefKey] - Preference key for persisting the current mode
  * @param {() => Array} [config.getAllWebviews] - Returns all webviews for pointer-event blocking during resize
  * @param {(visible: boolean) => void} [config.onVisibilityChanged] - Called when visibility changes
@@ -31,13 +32,14 @@ export function createPanel(side, config) {
 		panel, resizeHandle, toggle,
 		label, defaultWidth, direction,
 		validModes = ["closed", "files", "tiles"],
+		defaultMode = validModes[1] || "closed",
 		prefKey = "sidebar-mode",
 		getAllWebviews = () => [],
 		onVisibilityChanged = () => {},
 		onModeChanged = () => {},
 	} = config;
 
-	let mode = validModes[1] || "closed";
+	let mode = defaultMode;
 	let lastOpenMode = validModes[1] || "closed";
 	let width = defaultWidth;
 	const prefCache = {};
@@ -178,7 +180,7 @@ export function createPanel(side, config) {
 		if (prefMode != null && validModes.includes(prefMode)) {
 			mode = prefMode;
 		} else {
-			mode = validModes[1] || "closed"; // default to first open mode if no saved pref
+			mode = defaultMode;
 		}
 		applyVisibility();
 	}

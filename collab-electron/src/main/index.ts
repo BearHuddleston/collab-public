@@ -172,6 +172,8 @@ const cmdOrCtrl = (input: Electron.Input): boolean =>
   input.meta || input.control;
 const shiftCmdOrCtrl = (input: Electron.Input): boolean =>
   input.shift && (input.meta || input.control);
+const altCmdOrCtrl = (input: Electron.Input): boolean =>
+  input.alt && (input.meta || input.control);
 const ctrlOnly = (input: Electron.Input): boolean =>
   input.control && !input.meta;
 
@@ -186,6 +188,7 @@ const TOGGLE_SHORTCUTS: Record<string, ShortcutEntry> = {
   Comma: { modifier: cmdOrCtrl, action: "toggle-settings" },
   KeyO: { modifier: shiftCmdOrCtrl, action: "add-workspace" },
   KeyK: { modifier: cmdOrCtrl, action: "focus-file-search" },
+  KeyB: { modifier: altCmdOrCtrl, action: "toggle-agent" },
   KeyN: { modifier: cmdOrCtrl, action: "new-tile" },
   KeyW: { modifier: cmdOrCtrl, action: "close-tile" },
 };
@@ -196,6 +199,7 @@ const TOGGLE_SHORTCUT_KEYS: Record<string, ShortcutEntry> = {
   ",": TOGGLE_SHORTCUTS.Comma!,
   o: TOGGLE_SHORTCUTS.KeyO!,
   k: TOGGLE_SHORTCUTS.KeyK!,
+  b: TOGGLE_SHORTCUTS.KeyB!,
   n: TOGGLE_SHORTCUTS.KeyN!,
   w: TOGGLE_SHORTCUTS.KeyW!,
 };
@@ -383,6 +387,12 @@ function buildAppMenu(): void {
           accelerator: "CommandOrControl+`",
           registerAccelerator: false,
           click: () => sendShortcut("sidebar-tiles"),
+        },
+        {
+          label: "Toggle Agent",
+          accelerator: "CommandOrControl+Alt+B",
+          registerAccelerator: false,
+          click: () => sendShortcut("toggle-agent"),
         },
         { type: "separator" },
         {

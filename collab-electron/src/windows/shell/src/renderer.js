@@ -316,6 +316,7 @@ async function init() {
 		defaultWidth: 400,
 		direction: -1,
 		validModes: ["closed", "open"],
+		defaultMode: "closed",
 		prefKey: "sidebar-mode-agent",
 		getAllWebviews,
 		onVisibilityChanged(visible) {
@@ -988,6 +989,8 @@ async function init() {
 			panelManager.toggleToMode("files");
 		} else if (action === "sidebar-tiles") {
 			panelManager.toggleToMode("tiles");
+		} else if (action === "toggle-agent") {
+			agentPanel.toggle();
 		} else if (action === "focus-file-search") {
 			panelManager.setMode("files");
 			focusSurface("nav");
@@ -1271,6 +1274,10 @@ async function init() {
 
 	navToggle.addEventListener("click", () => {
 		panelManager.toggle();
+	});
+
+	agentToggle.addEventListener("click", () => {
+		agentPanel.toggle();
 	});
 
 	// -- Settings --
