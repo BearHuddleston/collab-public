@@ -187,6 +187,7 @@ const TOGGLE_SHORTCUTS: Record<string, ShortcutEntry[]> = {
     { modifier: altCmdOrCtrl, action: "toggle-agent" },
     { modifier: cmdOrCtrl, action: "sidebar-files" },
   ],
+  Backslash: [{ modifier: cmdOrCtrl, action: "sidebar-files" }],
   Comma: [{ modifier: cmdOrCtrl, action: "toggle-settings" }],
   KeyO: [{ modifier: shiftCmdOrCtrl, action: "add-workspace" }],
   KeyK: [{ modifier: cmdOrCtrl, action: "focus-file-search" }],
