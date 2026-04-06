@@ -36,6 +36,10 @@ function TerminalTab({
 		const container = containerRef.current;
 		if (!container) return;
 
+		const prefersDark = window.matchMedia(
+			"(prefers-color-scheme: dark)",
+		).matches;
+
 		const term = new Terminal({
 			theme: getTheme(),
 			fontFamily: 'Menlo, Monaco, "Courier New", monospace',
@@ -45,7 +49,7 @@ function TerminalTab({
 			cursorBlink: true,
 			scrollback: 200000,
 			allowProposedApi: true,
-			allowTransparency: true,
+			allowTransparency: prefersDark,
 			macOptionIsMeta: false,
 			overviewRuler: { width: 8 },
 		});
@@ -362,7 +366,8 @@ function TerminalTab({
 		const mediaQuery = window.matchMedia(
 			"(prefers-color-scheme: dark)",
 		);
-		const onThemeChange = () => {
+		const onThemeChange = (e: MediaQueryListEvent) => {
+			term.options.allowTransparency = e.matches;
 			term.options.theme = getTheme();
 		};
 		mediaQuery.addEventListener("change", onThemeChange);
