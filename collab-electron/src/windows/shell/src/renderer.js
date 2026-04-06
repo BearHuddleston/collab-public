@@ -17,6 +17,8 @@ import { normalizeCommandName } from "@collab/shared/path-utils";
 
 const CANVAS_DBLCLICK_SUPPRESS_MS = 500;
 const IS_WINDOWS = window.shellApi.getPlatform() === "win32";
+const IS_MAC = window.shellApi.getPlatform() === "darwin";
+const HAS_NATIVE_MATERIAL = IS_WINDOWS || IS_MAC;
 
 const viewportState = { panX: 0, panY: 0, zoom: 1 };
 
@@ -24,8 +26,14 @@ const canvasEl = document.getElementById("panel-viewer");
 const gridCanvas = document.getElementById("grid-canvas");
 canvasEl.tabIndex = -1;
 
-document.documentElement.classList.toggle("platform-win", IS_WINDOWS);
-document.body.classList.toggle("platform-win", IS_WINDOWS);
+document.documentElement.classList.toggle(
+	"platform-material",
+	HAS_NATIVE_MATERIAL,
+);
+document.body.classList.toggle(
+	"platform-material",
+	HAS_NATIVE_MATERIAL,
+);
 
 // -- Dark mode --
 
