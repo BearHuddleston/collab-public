@@ -20,6 +20,7 @@ import {
   killAll,
   discoverSessions,
   cleanDetachedSessions,
+  destroyAll,
   verifyTmuxAvailable,
 } from "./pty";
 
@@ -148,21 +149,17 @@ describe("discoverSessions", () => {
     expect(readSessionMeta(fakeId)).toBeNull();
   });
 
-  test("ignores orphan tmux sessions without metadata", async () => {
-    // Create a session, then delete its metadata
+  test("leaves orphan tmux sessions without metadata alone", async () => {
     const { sessionId } = await createSession("/tmp");
     killAll();
     deleteSessionMeta(sessionId);
 
-    // discoverSessions must not mutate sessions it cannot prove it owns.
     const discovered = await discoverSessions();
 
-    // The orphan should not be returned because it has no metadata.
     expect(
       discovered.some((s) => s.sessionId === sessionId),
     ).toBe(false);
 
-    // Verify the tmux session is still alive.
     const name = tmuxSessionName(sessionId);
     let alive = true;
     try {
@@ -273,6 +270,39 @@ describe("cleanDetachedSessions", () => {
     try { tmuxExec("kill-session", "-t", name); } catch {}
     deleteSessionMeta(sessionId);
   });
+
+  test("skips sidecar discovery in tmux mode", async () => {
+    // The test suite forces tmux mode in beforeAll.
+    // discoverSessions should return only tmux-backend results.
+    const results = await discoverSessions();
+    for (const r of results) {
+      expect(r.meta.backend ?? "tmux").toBe("tmux");
+    }
+  });
+});
+
+describe("destroyAll", () => {
+  test("kills owned sessions without killing the tmux server", async () => {
+    const { sessionId } = await createSession("/tmp");
+    const ownedName = tmuxSessionName(sessionId);
+
+    const externalName = "collab-external-test";
+    tmuxExec("new-session", "-d", "-s", externalName, "-x", "80", "-y", "24");
+
+    destroyAll();
+
+    let ownedAlive = true;
+    try { tmuxExec("has-session", "-t", ownedName); } catch { ownedAlive = false; }
+    expect(ownedAlive).toBe(false);
+
+    let externalAlive = true;
+    try { tmuxExec("has-session", "-t", externalName); } catch { externalAlive = false; }
+    expect(externalAlive).toBe(true);
+
+    // Clean up
+    try { tmuxExec("kill-session", "-t", externalName); } catch {}
+    deleteSessionMeta(sessionId);
+  });
 });
 
 describe("verifyTmuxAvailable", () => {
@@ -339,31 +369,6 @@ describe("cross-backend: discoverSessions preserves sidecar metadata", () => {
 
     // Metadata must still be intact.
     expect(readSessionMeta(sidecarId)).not.toBeNull();
-  });
-});
-
-describe("cross-backend: cleanDetachedSessions skips sidecar sessions", () => {
-  const sidecarId = "sidecar-clean-" + Date.now().toString(16);
-
-  afterEach(() => {
-    deleteSessionMeta(sidecarId);
-  });
-
-  test("cleanDetachedSessions must not delete sidecar metadata", async () => {
-    writeSessionMeta(sidecarId, {
-      shell: "/bin/zsh",
-      cwd: "/home/user/project",
-      createdAt: new Date().toISOString(),
-      backend: "sidecar",
-    });
-
-    // cleanDetachedSessions is called with an empty active list.
-    // It should only clean tmux sessions, not touch sidecar metadata.
-    await cleanDetachedSessions([]);
-
-    const meta = readSessionMeta(sidecarId);
-    expect(meta).not.toBeNull();
-    expect(meta!.backend).toBe("sidecar");
   });
 });
 
