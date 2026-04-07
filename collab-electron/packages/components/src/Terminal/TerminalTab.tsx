@@ -3,6 +3,7 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
+import { resolveTerminalFontFamily } from "@collab/shared/terminal-font";
 import { getTheme } from "./theme";
 import "@xterm/xterm/css/xterm.css";
 import "./TerminalTab.css";
@@ -35,6 +36,15 @@ function TerminalTab({
 	useEffect(() => {
 		const container = containerRef.current;
 		if (!container) return;
+		let isDisposed = false;
+		const isFontAvailable = (fontFamily: string) => {
+			if (!("fonts" in document)) return false;
+			try {
+				return document.fonts.check(`12px ${fontFamily}`);
+			} catch {
+				return false;
+			}
+		};
 
 		const prefersDark = window.matchMedia(
 			"(prefers-color-scheme: dark)",
@@ -42,7 +52,7 @@ function TerminalTab({
 
 		const term = new Terminal({
 			theme: getTheme(),
-			fontFamily: 'Menlo, Monaco, "Courier New", monospace',
+			fontFamily: resolveTerminalFontFamily(undefined, isFontAvailable),
 			fontSize: 12,
 			fontWeight: "300",
 			fontWeightBold: "500",
@@ -58,6 +68,16 @@ function TerminalTab({
 		term.loadAddon(fit);
 		term.open(container);
 		fitRef.current = fit;
+		void window.api.getPref("terminalFontFamily").then((value) => {
+			if (isDisposed) return;
+			const nextFontFamily = resolveTerminalFontFamily(
+				value,
+				isFontAvailable,
+			);
+			if (nextFontFamily === term.options.fontFamily) return;
+			term.options.fontFamily = nextFontFamily;
+			requestAnimationFrame(() => fit.fit());
+		}).catch(() => {});
 
 		const unicode11 = new Unicode11Addon();
 		term.loadAddon(unicode11);
@@ -373,6 +393,7 @@ function TerminalTab({
 		mediaQuery.addEventListener("change", onThemeChange);
 
 		return () => {
+			isDisposed = true;
 			if (flushTimer !== undefined) {
 				clearTimeout(flushTimer);
 				flushData();

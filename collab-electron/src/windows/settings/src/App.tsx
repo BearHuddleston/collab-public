@@ -9,6 +9,7 @@ import {
   Monitor,
   Terminal,
 } from "@phosphor-icons/react";
+import { DEFAULT_TERMINAL_FONT_FAMILY } from "@collab/shared/terminal-font";
 
 type ThemeMode = "light" | "dark" | "system";
 
@@ -424,6 +425,8 @@ function MacTerminalPane() {
           ))}
         </div>
       </div>
+
+      <TerminalFontField />
     </div>
   );
 }
@@ -472,6 +475,81 @@ function WindowsTerminalPane() {
             />
           ))}
         </div>
+      </div>
+
+      <TerminalFontField />
+    </div>
+  );
+}
+
+function TerminalFontField() {
+  const [value, setValue] = useState("");
+
+  useEffect(() => {
+    api.getPref("terminalFontFamily")
+      .then((pref) => {
+        if (typeof pref === "string") {
+          setValue(pref);
+          return;
+        }
+        setValue("");
+      })
+      .catch(() => { });
+  }, []);
+
+  async function commit(nextValue: string) {
+    const trimmed = nextValue.trim();
+    setValue(trimmed);
+    await api.setPref("terminalFontFamily", trimmed || null);
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="space-y-0.5">
+        <p className="text-sm font-medium">Terminal font family</p>
+        <p className="text-xs text-muted-foreground">
+          Comma-separated CSS font stack. Reset uses the built-in mono-first
+          Nerd Font fallback. On WSLg and Linux, the fonts must be installed in
+          the distro so the embedded terminal can see them.
+        </p>
+      </div>
+      <div className="flex items-center gap-2">
+        <input
+          type="text"
+          value={value}
+          placeholder={DEFAULT_TERMINAL_FONT_FAMILY}
+          onChange={(event) => setValue(event.target.value)}
+          onBlur={(event) => { void commit(event.target.value); }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              event.currentTarget.blur();
+            }
+          }}
+          className="w-full rounded-md px-3 py-2 text-sm font-mono"
+          style={{
+            backgroundColor:
+              "color-mix(in srgb, var(--foreground) 4%, transparent)",
+            border:
+              "1px solid color-mix(in srgb, var(--foreground) 12%, transparent)",
+            color: "var(--foreground)",
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => {
+            setValue("");
+            void api.setPref("terminalFontFamily", null);
+          }}
+          className="rounded-md px-3 py-2 text-xs font-medium cursor-pointer"
+          style={{
+            backgroundColor:
+              "color-mix(in srgb, var(--foreground) 8%, transparent)",
+            color: "var(--foreground)",
+          }}
+        >
+          Reset
+        </button>
       </div>
     </div>
   );
