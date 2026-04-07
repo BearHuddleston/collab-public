@@ -238,10 +238,14 @@ export default function App() {
 	);
 
 	// Assemble flat items lazily from workspace refs
+	const isSearching = searchQuery.trim().length > 0;
 	const getAllFlatItems = useCallback(() => {
 		const items: FlatItem[] = [];
 		for (const ws of sortedWorkspaces) {
-			if (!expandedWorkspaces.has(ws.path))
+			if (
+				!isSearching &&
+				!expandedWorkspaces.has(ws.path)
+			)
 				continue;
 			const ref =
 				workspaceRefsMap.current.get(ws.path);
@@ -250,7 +254,7 @@ export default function App() {
 			}
 		}
 		return items;
-	}, [sortedWorkspaces, expandedWorkspaces]);
+	}, [sortedWorkspaces, expandedWorkspaces, isSearching]);
 
 	const focusActiveSearch = useCallback(() => {
 		window.focus();

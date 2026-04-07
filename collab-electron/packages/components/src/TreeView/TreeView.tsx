@@ -67,6 +67,7 @@ interface FolderRowProps {
 	isWorkspace?: boolean;
 	isFirstWorkspace?: boolean;
 	dimmed?: boolean;
+	hideChevron?: boolean;
 }
 
 export const FolderRow = React.memo(function FolderRow({
@@ -92,6 +93,7 @@ export const FolderRow = React.memo(function FolderRow({
 	isWorkspace = false,
 	isFirstWorkspace = false,
 	dimmed = false,
+	hideChevron = false,
 }: FolderRowProps) {
 	const style: React.CSSProperties = isWorkspace
 		? {
@@ -130,7 +132,7 @@ export const FolderRow = React.memo(function FolderRow({
 				onContextMenu?.(e, item);
 			}}
 		>
-			<span className="collection-tree-caret">
+			<span className="collection-tree-caret" style={hideChevron ? { visibility: 'hidden' } : undefined}>
 				{item.isExpanded ? (
 					<CaretDown
 						size={10}

@@ -264,8 +264,9 @@ export const WorkspaceTree = forwardRef<
 				onDrop={onDrop}
 				isWorkspace
 				isFirstWorkspace={isFirstWorkspace}
+				hideChevron={isSearching}
 			/>
-			{isExpanded && (
+			{(isExpanded || (isSearching && filteredItems.length > 0)) && (
 				<TreeView
 					flatItems={filteredItems}
 					selectedPath={selectedPath}
