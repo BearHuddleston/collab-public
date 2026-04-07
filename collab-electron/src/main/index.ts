@@ -276,11 +276,11 @@ function registerToggleShortcuts(win: BrowserWindow): void {
   attachShortcutListener(win.webContents);
 
   win.webContents.on("did-attach-webview", (_event, wc) => {
-    // Transparent compositor surface so terminal tiles can
-    // show through to the canvas/vibrancy background.
-    wc.setBackgroundColor("#00000000");
-
     wc.once("did-finish-load", () => {
+      // Transparent compositor surface so terminal tiles can
+      // show through to the canvas/vibrancy background.
+      wc.insertCSS("html, body { background: transparent !important; }");
+
       attachShortcutListener(wc);
       if (isBrowserTileWebview(wc)) {
         attachBrowserShortcuts(wc, win);
