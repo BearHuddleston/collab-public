@@ -621,6 +621,7 @@ export default function App() {
 				{hasPdfFile && displayedPath && (
 					<iframe
 						src={toCollabFileUrl(displayedPath)}
+						sandbox="allow-same-origin"
 						style={{ width: "100%", height: "100%", border: "none" }}
 						title={displayedPath}
 					/>
