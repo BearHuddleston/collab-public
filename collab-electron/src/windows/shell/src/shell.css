@@ -15,6 +15,8 @@
 	--muted: rgb(113, 113, 123);
 	--edge-dot: rgb(34, 160, 90);
 	--edge-dot-hover: rgb(40, 190, 105);
+	--new-tile-btn-bg: rgb(224, 224, 224);
+	--new-tile-btn-bg-hover: rgb(212, 212, 212);
 
 	--panel-nav-min: 100;
 	--panel-nav-max: 1000;
@@ -37,6 +39,8 @@
 	--muted: rgb(132, 132, 132);
 	--edge-dot: rgb(72, 210, 130);
 	--edge-dot-hover: rgb(90, 235, 150);
+	--new-tile-btn-bg: rgb(44, 44, 44);
+	--new-tile-btn-bg-hover: rgb(56, 56, 56);
 }
 
 * {
@@ -285,18 +289,17 @@ body.platform-win {
 	width: 28px;
 	height: 28px;
 	padding: 0;
-	border: none;
+	border: 1px solid var(--border);
 	border-radius: 8px;
-	background: color-mix(in srgb, var(--card) 80%, transparent);
+	background: var(--new-tile-btn-bg);
 	color: var(--muted);
 	cursor: pointer;
-	backdrop-filter: blur(8px);
 	transition: color 0.15s ease, background 0.15s ease;
 }
 
 #new-tile-btn:hover {
 	color: var(--fg);
-	background: color-mix(in srgb, var(--card) 95%, transparent);
+	background: var(--new-tile-btn-bg-hover);
 }
 
 #new-tile-btn:active {

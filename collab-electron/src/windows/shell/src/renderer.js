@@ -1384,16 +1384,15 @@ async function init() {
 		const cx = (rect.width / 2 - viewportState.panX) / viewportState.zoom - size.width / 2;
 		const cy = (rect.height / 2 - viewportState.panY) / viewportState.zoom - size.height / 2;
 		if (type === "term") {
-			const ws = workspaceManager.getActiveWorkspace();
-			const cwd = ws ? ws.path : undefined;
+			const cwd = getTerminalCwd();
 			const tile = tileManager.createCanvasTile("term", cx, cy, { cwd });
 			tileManager.spawnTerminalWebview(tile, true);
-			tileManager.saveCanvasImmediate();
 		} else {
 			const tile = tileManager.createCanvasTile("browser", cx, cy);
 			tileManager.spawnBrowserWebview(tile, true);
-			tileManager.saveCanvasImmediate();
 		}
+		tileManager.saveCanvasImmediate();
+		minimap.update();
 	});
 
 	settingsBtn.addEventListener("click", () => {
