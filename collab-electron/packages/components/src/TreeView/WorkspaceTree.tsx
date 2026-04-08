@@ -167,13 +167,12 @@ export const WorkspaceTree = forwardRef<
 	const needsAllFiles = isSearching || flatView;
 
 	// Invalidate allFiles cache when FS changes are detected
-	const flatItemsGeneration = flatItems.length;
 	useEffect(() => {
 		if (needsAllFiles) {
 			setAllFiles(null);
 		}
-	// eslint-disable-next-line react-hooks/exhaustive-deps -- invalidate cache on flatItems change
-	}, [flatItemsGeneration]);
+	// eslint-disable-next-line react-hooks/exhaustive-deps -- flatItems ref changes on any FS update
+	}, [flatItems]);
 
 	useEffect(() => {
 		if (!needsAllFiles) {
@@ -221,12 +220,16 @@ export const WorkspaceTree = forwardRef<
 		// Sort by current sortMode
 		const toTime = (v?: string | number): number =>
 			typeof v === 'number' ? v : v ? new Date(v).getTime() : 0;
+		const basename = (n: string) => {
+			const i = n.lastIndexOf('/');
+			return i >= 0 ? n.slice(i + 1) : n;
+		};
 		const cmp = (a: FlatItem, b: FlatItem) => {
 			switch (sortMode) {
 				case 'alpha-asc':
-					return a.name.localeCompare(b.name);
+					return basename(a.name).localeCompare(basename(b.name));
 				case 'alpha-desc':
-					return b.name.localeCompare(a.name);
+					return basename(b.name).localeCompare(basename(a.name));
 				case 'created-desc':
 					return toTime(b.ctime) - toTime(a.ctime);
 				case 'created-asc':
