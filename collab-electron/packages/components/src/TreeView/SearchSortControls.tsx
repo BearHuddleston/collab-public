@@ -51,23 +51,27 @@ export const SearchSortControls = React.forwardRef<
 				</div>
 			) : null}
 			{onToggleFlatView && (
-				<div className="nav-view-toggle">
-					<button
-						type="button"
-						className={`nav-view-toggle-button${!flatView ? ' active' : ''}`}
-						onClick={flatView ? onToggleFlatView : undefined}
-						title="Tree view"
-					>
-						<TreeViewIcon size={14} weight={!flatView ? 'fill' : 'regular'} />
-					</button>
-					<button
-						type="button"
-						className={`nav-view-toggle-button${flatView ? ' active' : ''}`}
-						onClick={!flatView ? onToggleFlatView : undefined}
-						title="Feed view"
-					>
-						<List size={14} weight={flatView ? 'bold' : 'regular'} />
-					</button>
+				<div className={`nav-view-toggle${searchQuery?.trim() ? ' hidden' : ''}`}>
+					{!searchQuery?.trim() && (
+						<>
+							<button
+								type="button"
+								className={`nav-view-toggle-button${!flatView ? ' active' : ''}`}
+								onClick={flatView ? onToggleFlatView : undefined}
+								title="Tree view"
+							>
+								<TreeViewIcon size={14} weight={!flatView ? 'fill' : 'regular'} />
+							</button>
+							<button
+								type="button"
+								className={`nav-view-toggle-button${flatView ? ' active' : ''}`}
+								onClick={!flatView ? onToggleFlatView : undefined}
+								title="Feed view"
+							>
+								<List size={14} weight={flatView ? 'bold' : 'regular'} />
+							</button>
+						</>
+					)}
 				</div>
 			)}
 			<div className="search-input-wrapper">
