@@ -299,6 +299,12 @@ function applyZoomToAll(level: number): void {
   }
 }
 
+function sendToAllWebContents(channel: string, ...args: unknown[]): void {
+  for (const wc of webContentsModule.getAllWebContents()) {
+    if (!wc.isDestroyed()) wc.send(channel, ...args);
+  }
+}
+
 function buildAppMenu(): void {
   const isMac = process.platform === "darwin";
   const fullScreenAccelerator = isMac ? "Ctrl+Cmd+F" : "F11";
@@ -548,9 +554,7 @@ ipcMain.handle(
   "pref:set",
   (_event, key: string, value: unknown) => {
     setPref(config, key, value);
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send("pref:changed", key, value);
-    }
+    sendToAllWebContents("pref:changed", key, value);
   },
 );
 

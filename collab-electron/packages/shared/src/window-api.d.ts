@@ -119,6 +119,9 @@ export interface CollabApi {
   getDeviceId: () => Promise<string>;
   getPref: (key: string) => Promise<unknown>;
   setPref: (key: string, value: unknown) => Promise<void>;
+  onPrefChanged: (
+    cb: (key: string, value: unknown) => void,
+  ) => Unsubscribe;
   listTerminalTargets: () => Promise<TerminalTargetOption[]>;
   getWorkspacePref: (key: string, workspacePath: string) => Promise<unknown>;
   setWorkspacePref: (
@@ -266,6 +269,7 @@ export interface CollabApi {
     backend?: "tmux" | "sidecar";
   } | null>;
   notifyPtySessionId: (sessionId: string) => void;
+  notifyCwdChanged: (sessionId: string, cwd: string) => void;
   onPtyData: (sessionId: string, cb: PtyDataCb) => void;
   offPtyData: (sessionId: string, cb: PtyDataCb) => void;
   onPtyExit: (sessionId: string, cb: PtyExitCb) => void;

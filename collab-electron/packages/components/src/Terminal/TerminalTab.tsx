@@ -37,14 +37,10 @@ function TerminalTab({
 		const container = containerRef.current;
 		if (!container) return;
 		let isDisposed = false;
-		const isFontAvailable = (fontFamily: string) => {
-			if (!("fonts" in document)) return false;
-			try {
-				return document.fonts.check(`12px ${fontFamily}`);
-			} catch {
-				return false;
-			}
-		};
+
+		const prefersDark = window.matchMedia(
+			"(prefers-color-scheme: dark)",
+		).matches;
 
 		const prefersDark = window.matchMedia(
 			"(prefers-color-scheme: dark)",
@@ -52,7 +48,7 @@ function TerminalTab({
 
 		const term = new Terminal({
 			theme: getTheme(),
-			fontFamily: resolveTerminalFontFamily(undefined, isFontAvailable),
+			fontFamily: resolveTerminalFontFamily(undefined),
 			fontSize: 12,
 			fontWeight: "300",
 			fontWeightBold: "500",
@@ -68,16 +64,29 @@ function TerminalTab({
 		term.loadAddon(fit);
 		term.open(container);
 		fitRef.current = fit;
-		void window.api.getPref("terminalFontFamily").then((value) => {
-			if (isDisposed) return;
-			const nextFontFamily = resolveTerminalFontFamily(
-				value,
-				isFontAvailable,
-			);
+
+		const applyFontFamily = (value: unknown) => {
+			const nextFontFamily = resolveTerminalFontFamily(value);
 			if (nextFontFamily === term.options.fontFamily) return;
 			term.options.fontFamily = nextFontFamily;
 			requestAnimationFrame(() => fit.fit());
-		}).catch(() => {});
+		};
+
+		void window.api.getPref("terminalFontFamily")
+			.then((value) => {
+				if (isDisposed) return;
+				applyFontFamily(value);
+			})
+			.catch(() => {});
+
+		const offPrefChanged =
+			typeof window.api.onPrefChanged === "function"
+				? window.api.onPrefChanged((key, value) => {
+					if (key === "terminalFontFamily") {
+						applyFontFamily(value);
+					}
+				})
+				: undefined;
 
 		const unicode11 = new Unicode11Addon();
 		term.loadAddon(unicode11);
@@ -407,6 +416,7 @@ function TerminalTab({
 			container.removeEventListener("dragover", handleDragOver);
 			container.removeEventListener("drop", handleDrop);
 			window.api.offPtyData(sessionId, handleData);
+			offPrefChanged?.();
 			offShellBlur();
 			term.dispose();
 			fitRef.current = null;

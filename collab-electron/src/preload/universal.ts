@@ -154,6 +154,12 @@ contextBridge.exposeInMainWorld("api", {
   getPref: (key: string) => ipcRenderer.invoke("pref:get", key),
   setPref: (key: string, value: unknown) =>
     ipcRenderer.invoke("pref:set", key, value),
+  onPrefChanged: (cb: (key: string, value: unknown) => void) => {
+    const handler = (_event: unknown, key: string, value: unknown) =>
+      cb(key, value);
+    ipcRenderer.on("pref:changed", handler);
+    return () => ipcRenderer.removeListener("pref:changed", handler);
+  },
   listTerminalTargets: () =>
     ipcRenderer.invoke("terminal:list-targets"),
   getWorkspacePref: (key: string, workspacePath: string) =>

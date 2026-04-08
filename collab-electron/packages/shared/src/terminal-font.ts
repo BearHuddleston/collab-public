@@ -1,41 +1,24 @@
-const TERMINAL_PRIMARY_FONT_CANDIDATES = [
-  '"CaskaydiaMono Nerd Font Mono"',
-  '"CaskaydiaMono Nerd Font"',
-  '"CaskaydiaCove Nerd Font Mono"',
-  '"CaskaydiaCove Nerd Font"',
-  '"JetBrainsMono Nerd Font Mono"',
-  '"JetBrainsMono Nerd Font"',
-  '"MesloLGS NF"',
-  '"MesloLGS Nerd Font"',
-  '"SauceCodePro Nerd Font Mono"',
-  '"SauceCodePro Nerd Font"',
-  '"FiraCode Nerd Font Mono"',
-  '"FiraCode Nerd Font"',
-  '"Hack Nerd Font Mono"',
-  '"Hack Nerd Font"',
-  '"Symbols Nerd Font Mono"',
-  '"Symbols Nerd Font"',
-];
-
 const TERMINAL_FALLBACK_FONT_FAMILIES = [
-  ...TERMINAL_PRIMARY_FONT_CANDIDATES,
-  '"SF Mono"',
-  '"Cascadia Mono"',
-  "Consolas",
   "Menlo",
   "Monaco",
-  '"DejaVu Sans Mono"',
-  '"Liberation Mono"',
-  '"Noto Sans Mono"',
+  '"Courier New"',
   '"Segoe UI Emoji"',
   '"Segoe UI Symbol"',
   '"Apple Color Emoji"',
   '"Noto Color Emoji"',
-  '"Noto Emoji"',
   "monospace",
 ];
 
-export type FontAvailabilityCheck = (fontFamily: string) => boolean;
+export const TERMINAL_FONT_SUGGESTIONS = [
+  "FiraCode Nerd Font Mono",
+  "FiraCode Nerd Font",
+  "JetBrainsMono Nerd Font Mono",
+  "CaskaydiaMono Nerd Font Mono",
+  "MesloLGS NF",
+  "Hack Nerd Font Mono",
+  "SF Mono",
+  "Consolas",
+];
 
 export const DEFAULT_TERMINAL_FONT_FAMILY = TERMINAL_FALLBACK_FONT_FAMILIES.join(
   ", ",
@@ -43,6 +26,14 @@ export const DEFAULT_TERMINAL_FONT_FAMILY = TERMINAL_FALLBACK_FONT_FAMILIES.join
 
 function normalizeFontFamilyToken(value: string): string {
   return value.trim().replace(/^['"]|['"]$/g, "").toLowerCase();
+}
+
+function quoteFontFamily(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (/^['"].*['"]$/.test(trimmed)) return trimmed;
+  if (/^[A-Za-z0-9_-]+$/.test(trimmed)) return trimmed;
+  return `"${trimmed.replace(/"/g, '\\"')}"`;
 }
 
 export function composeTerminalFontFamily(
@@ -60,8 +51,9 @@ export function composeTerminalFontFamily(
     return requested;
   }
 
-  const seen = new Set<string>([normalizeFontFamilyToken(requested)]);
-  const families = [requested];
+  const primary = quoteFontFamily(requested);
+  const seen = new Set<string>([normalizeFontFamilyToken(primary)]);
+  const families = [primary];
 
   for (const fallback of TERMINAL_FALLBACK_FONT_FAMILIES) {
     const normalized = normalizeFontFamilyToken(fallback);
@@ -73,28 +65,9 @@ export function composeTerminalFontFamily(
   return families.join(", ");
 }
 
-export function pickInstalledTerminalFontFamily(
-  isFontAvailable?: FontAvailabilityCheck,
-): string | null {
-  if (!isFontAvailable) return null;
-
-  for (const candidate of TERMINAL_PRIMARY_FONT_CANDIDATES) {
-    if (isFontAvailable(candidate)) {
-      return candidate;
-    }
-  }
-
-  return null;
-}
-
-export function resolveTerminalFontFamily(
-  value: unknown,
-  isFontAvailable?: FontAvailabilityCheck,
-): string {
+export function resolveTerminalFontFamily(value: unknown): string {
   if (typeof value !== "string" || !value.trim()) {
-    return composeTerminalFontFamily(
-      pickInstalledTerminalFontFamily(isFontAvailable),
-    );
+    return DEFAULT_TERMINAL_FONT_FAMILY;
   }
 
   return composeTerminalFontFamily(value);

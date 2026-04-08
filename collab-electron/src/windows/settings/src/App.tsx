@@ -9,7 +9,10 @@ import {
   Monitor,
   Terminal,
 } from "@phosphor-icons/react";
-import { DEFAULT_TERMINAL_FONT_FAMILY } from "@collab/shared/terminal-font";
+import {
+  DEFAULT_TERMINAL_FONT_FAMILY,
+  TERMINAL_FONT_SUGGESTIONS,
+} from "@collab/shared/terminal-font";
 
 type ThemeMode = "light" | "dark" | "system";
 
@@ -494,7 +497,7 @@ function TerminalFontField() {
         }
         setValue("");
       })
-      .catch(() => { });
+      .catch(() => {});
   }, []);
 
   async function commit(nextValue: string) {
@@ -508,16 +511,17 @@ function TerminalFontField() {
       <div className="space-y-0.5">
         <p className="text-sm font-medium">Terminal font family</p>
         <p className="text-xs text-muted-foreground">
-          Comma-separated CSS font stack. Reset uses the built-in mono-first
-          Nerd Font fallback. On WSLg and Linux, the fonts must be installed in
-          the distro so the embedded terminal can see them.
+          Enter a font family like FiraCode Nerd Font Mono or a full CSS stack.
+          Single-family entries keep the built-in fallback stack behind them.
+          Open terminals update immediately.
         </p>
       </div>
       <div className="flex items-center gap-2">
         <input
           type="text"
+          list="terminal-font-suggestions"
           value={value}
-          placeholder={DEFAULT_TERMINAL_FONT_FAMILY}
+          placeholder="e.g. FiraCode Nerd Font Mono"
           onChange={(event) => setValue(event.target.value)}
           onBlur={(event) => { void commit(event.target.value); }}
           onKeyDown={(event) => {
@@ -535,6 +539,11 @@ function TerminalFontField() {
             color: "var(--foreground)",
           }}
         />
+        <datalist id="terminal-font-suggestions">
+          {TERMINAL_FONT_SUGGESTIONS.map((fontFamily) => (
+            <option key={fontFamily} value={fontFamily} />
+          ))}
+        </datalist>
         <button
           type="button"
           onClick={() => {
@@ -551,6 +560,9 @@ function TerminalFontField() {
           Reset
         </button>
       </div>
+      <p className="text-[11px] text-muted-foreground font-mono">
+        Default: {DEFAULT_TERMINAL_FONT_FAMILY}
+      </p>
     </div>
   );
 }
