@@ -42,10 +42,6 @@ function TerminalTab({
 			"(prefers-color-scheme: dark)",
 		).matches;
 
-		const prefersDark = window.matchMedia(
-			"(prefers-color-scheme: dark)",
-		).matches;
-
 		const term = new Terminal({
 			theme: getTheme(),
 			fontFamily: resolveTerminalFontFamily(undefined),
