@@ -490,13 +490,7 @@ function TerminalFontField() {
 
   useEffect(() => {
     api.getPref("terminalFontFamily")
-      .then((pref) => {
-        if (typeof pref === "string") {
-          setValue(pref);
-          return;
-        }
-        setValue("");
-      })
+      .then((pref) => setValue(typeof pref === "string" ? pref : ""))
       .catch(() => {});
   }, []);
 
@@ -546,10 +540,7 @@ function TerminalFontField() {
         </datalist>
         <button
           type="button"
-          onClick={() => {
-            setValue("");
-            void api.setPref("terminalFontFamily", null);
-          }}
+          onClick={() => { void commit(""); }}
           className="rounded-md px-3 py-2 text-xs font-medium cursor-pointer"
           style={{
             backgroundColor:

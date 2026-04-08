@@ -66,9 +66,7 @@ export function composeTerminalFontFamily(
 }
 
 export function resolveTerminalFontFamily(value: unknown): string {
-  if (typeof value !== "string" || !value.trim()) {
-    return DEFAULT_TERMINAL_FONT_FAMILY;
-  }
-
-  return composeTerminalFontFamily(value);
+  return composeTerminalFontFamily(
+    typeof value === "string" ? value : null,
+  );
 }

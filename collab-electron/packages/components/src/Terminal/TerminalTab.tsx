@@ -75,14 +75,11 @@ function TerminalTab({
 			})
 			.catch(() => {});
 
-		const offPrefChanged =
-			typeof window.api.onPrefChanged === "function"
-				? window.api.onPrefChanged((key, value) => {
-					if (key === "terminalFontFamily") {
-						applyFontFamily(value);
-					}
-				})
-				: undefined;
+		const offPrefChanged = window.api.onPrefChanged((key, value) => {
+			if (key === "terminalFontFamily") {
+				applyFontFamily(value);
+			}
+		});
 
 		const unicode11 = new Unicode11Addon();
 		term.loadAddon(unicode11);
