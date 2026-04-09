@@ -276,6 +276,16 @@
 	gap: 0;
 	padding: 0;
 	flex-shrink: 0;
+	width: 44px;
+	overflow: hidden;
+	opacity: 1;
+	transition: width 0.2s ease, opacity 0.15s ease;
+}
+
+.nav-view-toggle.hidden {
+	width: 0;
+	opacity: 0;
+	pointer-events: none;
 }
 
 .nav-view-toggle-button {
