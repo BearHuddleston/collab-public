@@ -181,7 +181,7 @@ export function registerCanvasRpc(win: BrowserWindow): void {
 
   registerMethod(
     "canvas.browserNavigate",
-    (params) => sendToShell("canvas.browserNavigate", params),
+    (params) => sendToShell("browserNavigate", params),
     {
       description: "Navigate a browser tile to a URL",
       params: {
@@ -193,48 +193,47 @@ export function registerCanvasRpc(win: BrowserWindow): void {
 
   registerMethod(
     "canvas.browserScreenshot",
-    (params) => sendToShell("canvas.browserScreenshot", params),
+    (params) => sendToShell("browserScreenshot", params),
     {
       description:
-        "Capture a screenshot of a browser tile as base64 PNG",
-      params: {
-        tileId: "ID of the browser tile",
-      },
+        "Capture a screenshot of a browser tile (base64 PNG)",
+      params: { tileId: "ID of the browser tile" },
     },
   );
 
   registerMethod(
     "canvas.browserSnapshot",
-    (params) => sendToShell("canvas.browserSnapshot", params),
+    (params) => sendToShell("browserSnapshot", params),
     {
-      description: "Get the DOM tree of a browser tile",
-      params: {
-        tileId: "ID of the browser tile",
-      },
+      description:
+        "Get DOM tree snapshot of a browser tile",
+      params: { tileId: "ID of the browser tile" },
     },
   );
 
   registerMethod(
     "canvas.browserClick",
-    (params) => sendToShell("canvas.browserClick", params),
+    (params) => sendToShell("browserClick", params),
     {
       description: "Click an element in a browser tile",
       params: {
         tileId: "ID of the browser tile",
-        selector: "CSS selector of the element to click",
+        selector:
+          "CSS selector for the element to click",
       },
     },
   );
 
   registerMethod(
     "canvas.browserType",
-    (params) => sendToShell("canvas.browserType", params),
+    (params) => sendToShell("browserType", params),
     {
       description:
-        "Focus an element and type text in a browser tile",
+        "Type text into an element in a browser tile",
       params: {
         tileId: "ID of the browser tile",
-        selector: "CSS selector of the element to focus",
+        selector:
+          "CSS selector for the element",
         text: "Text to type",
       },
     },
