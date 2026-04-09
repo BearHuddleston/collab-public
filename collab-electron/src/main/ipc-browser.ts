@@ -129,4 +129,30 @@ export function registerBrowserIpc(): void {
       return {};
     },
   );
+
+  ipcMain.handle(
+    "browser:scroll",
+    async (_event, { webContentsId, x, y }: {
+      webContentsId: number; x: number; y: number;
+    }) => {
+      await cdpSend(webContentsId, "Input.dispatchMouseEvent", {
+        type: "mouseWheel", x: 0, y: 0, deltaX: x, deltaY: y,
+      });
+      return {};
+    },
+  );
+
+  ipcMain.handle(
+    "browser:evaluate",
+    async (_event, { webContentsId, expression }: {
+      webContentsId: number; expression: string;
+    }) => {
+      const result = await cdpSend(
+        webContentsId,
+        "Runtime.evaluate",
+        { expression, returnByValue: true },
+      ) as { result: { value?: unknown } };
+      return { value: result.result?.value };
+    },
+  );
 }

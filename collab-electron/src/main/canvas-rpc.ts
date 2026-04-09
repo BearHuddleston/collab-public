@@ -238,4 +238,30 @@ export function registerCanvasRpc(win: BrowserWindow): void {
       },
     },
   );
+
+  registerMethod(
+    "canvas.browserScroll",
+    (params) => sendToShell("browserScroll", params),
+    {
+      description: "Scroll a browser tile",
+      params: {
+        tileId: "ID of the browser tile",
+        x: "Horizontal scroll delta (pixels)",
+        y: "Vertical scroll delta (pixels)",
+      },
+    },
+  );
+
+  registerMethod(
+    "canvas.browserEvaluate",
+    (params) => sendToShell("browserEvaluate", params),
+    {
+      description:
+        "Run JavaScript in a browser tile and return the result",
+      params: {
+        tileId: "ID of the browser tile",
+        expression: "JavaScript expression to evaluate",
+      },
+    },
+  );
 }

@@ -83,6 +83,10 @@ function tilesToGrid(result) {
       t.size.width = Math.floor(t.size.width / GRID);
       t.size.height = Math.floor(t.size.height / GRID);
     }
+    // Strip undefined/null fields for cleaner output
+    for (const key of Object.keys(t)) {
+      if (t[key] === undefined || t[key] === null) delete t[key];
+    }
   }
   return result;
 }
@@ -305,6 +309,29 @@ async function cmdBrowserType(args) {
   console.log(`typed into ${selector} in ${tileId}`);
 }
 
+async function cmdBrowserScroll(args) {
+  if (args.length < 2) die("browser scroll requires <id> <deltaX,deltaY>");
+  const tileId = args[0];
+  const [xs, ys] = args[1].split(",");
+  const x = Number(xs);
+  const y = Number(ys);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) {
+    die(`invalid scroll delta: ${args[1]}`);
+  }
+  await rpcCall("canvas.browserScroll", { tileId, x, y });
+  console.log(`scrolled ${tileId} by ${x},${y}`);
+}
+
+async function cmdBrowserEvaluate(args) {
+  if (args.length < 2) die("browser eval requires <id> <expression>");
+  const tileId = args[0];
+  const expression = args[1];
+  const result = await rpcCall("canvas.browserEvaluate", {
+    tileId, expression,
+  });
+  console.log(pretty(result));
+}
+
 // --- usage ----------------------------------------------------------------
 
 function usage() {
@@ -327,6 +354,8 @@ COMMANDS
   browser snapshot <id>              Get DOM tree of browser tile
   browser click <id> <selector>      Click element in browser tile
   browser type <id> <sel> <text>     Type text into element
+  browser scroll <id> <dx,dy>       Scroll by delta (pixels)
+  browser eval <id> <expression>    Run JS and return result
   help, --help                       Show this help
 
 TILE CREATE OPTIONS
@@ -411,7 +440,7 @@ try {
     }
     case "browser": {
       if (argv.length < 2) {
-        die("browser requires a subcommand (navigate, screenshot, snapshot, click, type)");
+        die("browser requires a subcommand (navigate, screenshot, snapshot, click, type, scroll, eval)");
       }
       const sub = argv[1];
       const rest = argv.slice(2);
@@ -421,6 +450,8 @@ try {
         case "snapshot":   await cmdBrowserSnapshot(rest); break;
         case "click":      await cmdBrowserClick(rest); break;
         case "type":       await cmdBrowserType(rest); break;
+        case "scroll":     await cmdBrowserScroll(rest); break;
+        case "eval":       await cmdBrowserEvaluate(rest); break;
         default: die(`unknown browser subcommand: ${sub}`);
       }
       break;

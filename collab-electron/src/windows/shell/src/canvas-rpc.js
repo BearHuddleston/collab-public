@@ -58,6 +58,21 @@ export function createCanvasRpc({
 		return tile;
 	}
 
+	function requireBrowserWcId(requestId, tileId) {
+		const tile = requireTile(requestId, tileId);
+		if (!tile) return null;
+		if (tile.type !== "browser") {
+			respondError(requestId, 4, "Tile is not a browser");
+			return null;
+		}
+		const dom = tileManager.getTileDOMs().get(tileId);
+		if (!dom || !dom.webview) {
+			respondError(requestId, 4, "Browser webview not ready");
+			return null;
+		}
+		return dom.webview.getWebContentsId();
+	}
+
 	return async function handleCanvasRpc(request) {
 		const { requestId, method, params } = request;
 
@@ -71,8 +86,14 @@ export function createCanvasRpc({
 							type: t.type,
 							filePath: t.filePath,
 							folderPath: t.folderPath,
+							url: t.url,
+							cwd: t.cwd,
+							ptySessionId: t.ptySessionId,
+							userTitle: t.userTitle,
+							autoTitle: t.autoTitle,
 							position: { x: t.x, y: t.y },
 							size: { width: t.width, height: t.height },
+							zIndex: t.zIndex,
 						})),
 					};
 					break;
@@ -292,6 +313,26 @@ export function createCanvasRpc({
 					const wcId = dom.webview.getWebContentsId();
 					result = await window.shellApi.browserType(
 						wcId, params.selector, params.text,
+					);
+					break;
+				}
+				case "browserScroll": {
+					const wcId = requireBrowserWcId(
+						requestId, params.tileId,
+					);
+					if (wcId == null) return;
+					result = await window.shellApi.browserScroll(
+						wcId, params.x ?? 0, params.y ?? 0,
+					);
+					break;
+				}
+				case "browserEvaluate": {
+					const wcId = requireBrowserWcId(
+						requestId, params.tileId,
+					);
+					if (wcId == null) return;
+					result = await window.shellApi.browserEvaluate(
+						wcId, params.expression,
 					);
 					break;
 				}

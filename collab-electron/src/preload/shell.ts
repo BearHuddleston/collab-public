@@ -289,4 +289,14 @@ contextBridge.exposeInMainWorld("shellApi", {
     webContentsId: number, selector: string, text: string,
   ): Promise<void> =>
     ipcRenderer.invoke("browser:type", { webContentsId, selector, text }),
+
+  browserScroll: (
+    webContentsId: number, x: number, y: number,
+  ): Promise<void> =>
+    ipcRenderer.invoke("browser:scroll", { webContentsId, x, y }),
+
+  browserEvaluate: (
+    webContentsId: number, expression: string,
+  ): Promise<{ value: unknown }> =>
+    ipcRenderer.invoke("browser:evaluate", { webContentsId, expression }),
 });
