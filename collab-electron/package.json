@@ -1,6 +1,6 @@
 {
 	"name": "@collaborator/electron",
-	"version": "0.7.2",
+	"version": "0.8.0",
 	"private": true,
 	"license": "FSL-1.1-ALv2",
 	"type": "module",
@@ -91,7 +91,10 @@
 			"target": [
 				{
 					"target": "zip",
-					"arch": ["arm64", "x64"]
+					"arch": [
+						"arm64",
+						"x64"
+					]
 				}
 			]
 		},
@@ -99,7 +102,10 @@
 			"target": [
 				{
 					"target": "nsis",
-					"arch": ["x64", "arm64"]
+					"arch": [
+						"x64",
+						"arm64"
+					]
 				}
 			]
 		},
