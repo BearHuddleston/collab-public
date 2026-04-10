@@ -99,10 +99,30 @@ function parseReplay(
 
   function flush() {
     if (currentRole && currentParts.length > 0) {
-      messages.push({
-        role: currentRole,
-        content: [...currentParts],
-      });
+      let parts = [...currentParts];
+      // Strip XML metadata tags from user messages
+      // (Claude Code embeds command metadata in user
+      // message replay)
+      if (currentRole === "user") {
+        parts = parts
+          .map((p) => {
+            if (p.type !== "text") return p;
+            const cleaned = p.text
+              .replace(
+                /<[a-z-]+>[^<]*<\/[a-z-]+>/g, "",
+              )
+              .trim();
+            if (!cleaned) return null;
+            return { ...p, text: cleaned };
+          })
+          .filter(Boolean) as typeof parts;
+      }
+      if (parts.length > 0) {
+        messages.push({
+          role: currentRole,
+          content: parts,
+        });
+      }
     }
     currentParts = [];
     currentRole = null;
@@ -224,14 +244,25 @@ function createAcpAdapter(
 
       if (!text) return;
 
-      // Set up listeners before sending the prompt
-      let textAccum = "";
-      const toolCalls: Array<{
-        toolCallId: string;
-        toolName: string;
-        args: Record<string, unknown>;
-        result?: unknown;
-      }> = [];
+      // Track parts in arrival order so tool calls
+      // appear interleaved with text, not all at the end
+      type Part =
+        | { type: "text"; text: string }
+        | {
+          type: "tool-call";
+          toolCallId: string;
+          toolName: string;
+          argsText: string;
+          args: Record<string, unknown>;
+          result?: unknown;
+        };
+      const parts: Part[] = [];
+      let version = 0;
+
+      function lastTextPart(): Part | undefined {
+        const last = parts[parts.length - 1];
+        return last?.type === "text" ? last : undefined;
+      }
 
       let resolveComplete: () => void;
       let rejectComplete: (err: Error) => void;
@@ -254,30 +285,44 @@ function createAcpAdapter(
               const t = chunk && !Array.isArray(chunk)
                 ? chunk.text
                 : undefined;
-              if (t) textAccum += t;
+              if (!t) break;
+              const last = lastTextPart();
+              if (last) {
+                last.text += t;
+              } else {
+                parts.push({ type: "text", text: t });
+              }
+              version++;
               break;
             }
             case "tool_call": {
-              toolCalls.push({
+              parts.push({
+                type: "tool-call",
                 toolCallId:
                   update.toolCallId ?? `tc_${Date.now()}`,
                 toolName: update.title ?? "tool",
+                argsText: JSON.stringify(
+                  update.rawInput ?? {},
+                ),
                 args:
                   (update.rawInput as Record<
                     string, unknown
                   >) ?? {},
               });
+              version++;
               break;
             }
             case "tool_call_update": {
-              const tc = toolCalls.find(
-                (t) => t.toolCallId === update.toolCallId,
+              const id = update.toolCallId;
+              const tc = parts.find(
+                (p) =>
+                  p.type === "tool-call" &&
+                  p.toolCallId === id,
               );
-              if (tc) {
+              if (tc && tc.type === "tool-call") {
                 const raw = update.content;
                 if (
-                  Array.isArray(raw) &&
-                  raw.length > 0
+                  Array.isArray(raw) && raw.length > 0
                 ) {
                   const first = raw[0];
                   if (
@@ -290,6 +335,7 @@ function createAcpAdapter(
                 if (!tc.result && update.rawOutput) {
                   tc.result = update.rawOutput;
                 }
+                version++;
               }
               break;
             }
@@ -312,10 +358,9 @@ function createAcpAdapter(
       // Send the prompt
       window.api.agentPrompt(sessionId, text);
 
-      // Yield updates periodically until complete
+      // Yield parts in arrival order
       try {
-        let lastYieldedLen = 0;
-        let lastToolCount = 0;
+        let lastVersion = 0;
         while (true) {
           if (abortSignal?.aborted) {
             window.api.agentCancel(sessionId);
@@ -329,31 +374,9 @@ function createAcpAdapter(
             ),
           ]);
 
-          const changed =
-            textAccum.length > lastYieldedLen ||
-            toolCalls.length > lastToolCount;
-          if (changed || done) {
-            lastYieldedLen = textAccum.length;
-            lastToolCount = toolCalls.length;
-            const content: ChatModelRunResult["content"] =
-              [];
-            if (textAccum) {
-              content.push({
-                type: "text",
-                text: textAccum,
-              });
-            }
-            for (const tc of toolCalls) {
-              content.push({
-                type: "tool-call",
-                toolCallId: tc.toolCallId,
-                toolName: tc.toolName,
-                argsText: JSON.stringify(tc.args),
-                args: tc.args,
-                result: tc.result,
-              });
-            }
-            yield { content };
+          if (version > lastVersion || done) {
+            lastVersion = version;
+            yield { content: [...parts] };
           }
 
           if (done) break;
