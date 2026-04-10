@@ -326,6 +326,24 @@ contextBridge.exposeInMainWorld("shellApi", {
     return () =>
       ipcRenderer.removeListener("agent:exit", handler);
   },
+  onAgentSessionReady: (cb: (data: unknown) => void) => {
+    const handler = (_event: unknown, data: unknown) =>
+      cb(data);
+    ipcRenderer.on("agent:session-ready", handler);
+    return () =>
+      ipcRenderer.removeListener(
+        "agent:session-ready", handler,
+      );
+  },
+  onAgentSessionFailed: (cb: (data: unknown) => void) => {
+    const handler = (_event: unknown, data: unknown) =>
+      cb(data);
+    ipcRenderer.on("agent:session-failed", handler);
+    return () =>
+      ipcRenderer.removeListener(
+        "agent:session-failed", handler,
+      );
+  },
 
   browserScroll: (
     webContentsId: number, x: number, y: number,

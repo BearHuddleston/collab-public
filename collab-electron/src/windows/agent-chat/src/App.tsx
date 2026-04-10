@@ -11,7 +11,6 @@ export default function App() {
     useState<ConnectResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Phase 1: connect to agent, get replay data
   useEffect(() => {
     let cancelled = false;
 
@@ -56,7 +55,6 @@ export default function App() {
     );
   }
 
-  // Phase 2: render with runtime (replay data available)
   return <ConnectedChat connectResult={connectResult} />;
 }
 
@@ -65,11 +63,11 @@ function ConnectedChat({
 }: {
   connectResult: ConnectResult;
 }) {
-  const { runtime } = useAcpRuntime(connectResult);
+  const { runtime, ready } = useAcpRuntime(connectResult);
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>
-      <AgentThread />
+      <AgentThread ready={ready} />
     </AssistantRuntimeProvider>
   );
 }

@@ -63,6 +63,12 @@ declare global {
       onAgentExit: (
         cb: (data: { sessionId: string }) => void,
       ) => () => void;
+      onAgentSessionReady: (
+        cb: (data: { sessionId: string }) => void,
+      ) => () => void;
+      onAgentSessionFailed: (
+        cb: (data: { sessionId: string }) => void,
+      ) => () => void;
       sendToHost: (
         channel: string, ...args: unknown[]
       ) => void;
@@ -253,6 +259,9 @@ export function useAcpRuntime(
   const sessionIdRef = useRef<string | null>(
     connectResult.sessionId,
   );
+  const [ready, setReady] = useState(
+    !connectResult.resumed,
+  );
 
   // Use cached messages as initial messages
   const initialMessages = useMemo(() => {
@@ -268,6 +277,23 @@ export function useAcpRuntime(
   const runtime = useLocalRuntime(adapter, {
     initialMessages,
   });
+
+  // Listen for session ready/failed
+  useEffect(() => {
+    if (ready) return;
+    const cleanups: Array<() => void> = [];
+    cleanups.push(
+      window.api.onAgentSessionReady(() => {
+        setReady(true);
+      }),
+    );
+    cleanups.push(
+      window.api.onAgentSessionFailed(() => {
+        setReady(true);
+      }),
+    );
+    return () => cleanups.forEach((fn) => fn());
+  }, [ready]);
 
   // Save messages after each prompt completes
   useEffect(() => {
@@ -299,5 +325,5 @@ export function useAcpRuntime(
     return cleanup;
   }, [runtime]);
 
-  return { runtime };
+  return { runtime, ready };
 }

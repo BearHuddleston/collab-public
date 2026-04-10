@@ -662,6 +662,34 @@ contextBridge.exposeInMainWorld("api", {
     return () =>
       ipcRenderer.removeListener("agent:exit", handler);
   },
+
+  onAgentSessionReady: (
+    cb: (data: { sessionId: string }) => void,
+  ) => {
+    const handler = (
+      _event: unknown,
+      data: { sessionId: string },
+    ) => cb(data);
+    ipcRenderer.on("agent:session-ready", handler);
+    return () =>
+      ipcRenderer.removeListener(
+        "agent:session-ready", handler,
+      );
+  },
+
+  onAgentSessionFailed: (
+    cb: (data: { sessionId: string }) => void,
+  ) => {
+    const handler = (
+      _event: unknown,
+      data: { sessionId: string },
+    ) => cb(data);
+    ipcRenderer.on("agent:session-failed", handler);
+    return () =>
+      ipcRenderer.removeListener(
+        "agent:session-failed", handler,
+      );
+  },
 });
 
 // Forward ctrl+wheel (trackpad pinch) from tile webviews to the canvas

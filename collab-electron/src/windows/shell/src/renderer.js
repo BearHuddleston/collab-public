@@ -306,6 +306,16 @@ async function init() {
 		window.shellApi.onAgentExit((data) => {
 			agentChatWebview.send("agent:exit", data);
 		});
+		window.shellApi.onAgentSessionReady((data) => {
+			agentChatWebview.send(
+				"agent:session-ready", data,
+			);
+		});
+		window.shellApi.onAgentSessionFailed((data) => {
+			agentChatWebview.send(
+				"agent:session-failed", data,
+			);
+		});
 	}
 
 	const agentPanel = createPanel("agent", {

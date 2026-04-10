@@ -40,27 +40,40 @@ function AssistantMessage() {
   );
 }
 
-function Composer() {
+function Composer({ ready }: { ready: boolean }) {
   return (
-    <ComposerPrimitive.Root
-      className="flex items-end gap-2 rounded-xl border border-border bg-card p-2"
-    >
-      <ComposerPrimitive.Input
-        autoFocus
-        placeholder="Message the agent..."
-        className="flex-1 resize-none bg-transparent px-2 py-1 text-[13px] text-foreground outline-none placeholder:text-muted-foreground"
-        rows={1}
-      />
-      <ComposerPrimitive.Send
-        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground disabled:opacity-30"
+    <div>
+      {!ready && (
+        <div className="mb-1 text-center text-xs text-muted-foreground">
+          Reconnecting...
+        </div>
+      )}
+      <ComposerPrimitive.Root
+        className="flex items-end gap-2 rounded-xl border border-border bg-card p-2"
       >
-        <ArrowUp size={16} />
-      </ComposerPrimitive.Send>
-    </ComposerPrimitive.Root>
+        <ComposerPrimitive.Input
+          autoFocus
+          disabled={!ready}
+          placeholder={
+            ready
+              ? "Message the agent..."
+              : "Reconnecting..."
+          }
+          className="flex-1 resize-none bg-transparent px-2 py-1 text-[13px] text-foreground outline-none placeholder:text-muted-foreground"
+          rows={1}
+        />
+        <ComposerPrimitive.Send
+          disabled={!ready}
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground disabled:opacity-30"
+        >
+          <ArrowUp size={16} />
+        </ComposerPrimitive.Send>
+      </ComposerPrimitive.Root>
+    </div>
   );
 }
 
-export function AgentThread() {
+export function AgentThread({ ready }: { ready: boolean }) {
   return (
     <ThreadPrimitive.Root
       className="flex h-full flex-col px-4 pb-4 text-foreground"
@@ -78,7 +91,7 @@ export function AgentThread() {
         </div>
       </ThreadPrimitive.Viewport>
       <div className="">
-        <Composer />
+        <Composer ready={ready} />
       </div>
     </ThreadPrimitive.Root>
   );

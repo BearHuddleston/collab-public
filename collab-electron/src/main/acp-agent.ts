@@ -239,28 +239,36 @@ export async function spawnAgent(
     ]);
 
   if (savedId) {
-    try {
-      const tResume = performance.now();
-      await (connection as any).unstable_resumeSession({
-        sessionId: savedId,
-        cwd: savedCwd ?? cwd,
-      });
+    registerSession(savedId, connection, proc, cwd);
+
+    // Resume in background — don't block the UI
+    const tResume = performance.now();
+    (connection as any).unstable_resumeSession({
+      sessionId: savedId,
+      cwd: savedCwd ?? cwd,
+    }).then(() => {
       console.log(
         `[acp-timing] resumeSession: ${(performance.now() - tResume).toFixed(0)}ms`,
       );
-      console.log(
-        `[acp-timing] total (resume): ${(performance.now() - tStart).toFixed(0)}ms`,
-      );
-      registerSession(savedId, connection, proc, cwd);
-      return {
+      sendToRenderer("agent:session-ready", {
         sessionId: savedId,
-        resumed: true,
-        cachedMessages,
-      };
-    } catch {
+      });
+    }).catch(() => {
       clearSessionPref();
-      await clearCachedMessages();
-    }
+      clearCachedMessages();
+      sendToRenderer("agent:session-failed", {
+        sessionId: savedId,
+      });
+    });
+
+    console.log(
+      `[acp-timing] total (non-blocking): ${(performance.now() - tStart).toFixed(0)}ms`,
+    );
+    return {
+      sessionId: savedId,
+      resumed: true,
+      cachedMessages,
+    };
   }
 
   const tNew = performance.now();
