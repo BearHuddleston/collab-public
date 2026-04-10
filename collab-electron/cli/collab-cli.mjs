@@ -1,72 +1,15 @@
 #!/usr/bin/env node
-import { createConnection } from "node:net";
-import { readFileSync } from "node:fs";
-import { join, resolve } from "node:path";
-import { homedir } from "node:os";
+import { resolve } from "node:path";
+import { rpcCall } from "./collab-rpc.mjs";
 
 const VERSION = "0.1.0";
 const GRID = 20;
-const COLLAB_DIR = join(homedir(), ".collaborator");
-const SOCKET_FILE = join(COLLAB_DIR, "socket-path");
 
 // --- helpers --------------------------------------------------------------
 
 function die(msg, code = 1) {
   process.stderr.write(`error: ${msg}\n`);
   process.exit(code);
-}
-
-function readSocketPath() {
-  let raw;
-  try {
-    raw = readFileSync(SOCKET_FILE, "utf-8").trim();
-  } catch {
-    die("collaborator is not running (no socket-path file)", 2);
-  }
-  return raw;
-}
-
-function rpcCall(method, params = {}) {
-  return new Promise((res, rej) => {
-    const socketPath = readSocketPath();
-    const payload =
-      JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) + "\n";
-
-    const sock = createConnection(socketPath);
-    let buf = "";
-
-    const timer = setTimeout(() => {
-      sock.destroy();
-      rej(new Error("timeout"));
-    }, 10_000);
-
-    sock.on("connect", () => sock.write(payload));
-
-    sock.on("data", (chunk) => {
-      buf += chunk.toString();
-      const nl = buf.indexOf("\n");
-      if (nl === -1) return;
-      clearTimeout(timer);
-      sock.destroy();
-      let resp;
-      try {
-        resp = JSON.parse(buf.slice(0, nl));
-      } catch {
-        rej(new Error("invalid response from collaborator"));
-        return;
-      }
-      if (resp.error) {
-        rej(new Error(resp.error.message ?? "unknown error"));
-      } else {
-        res(resp.result);
-      }
-    });
-
-    sock.on("error", (err) => {
-      clearTimeout(timer);
-      rej(err);
-    });
-  });
 }
 
 function pretty(obj) {

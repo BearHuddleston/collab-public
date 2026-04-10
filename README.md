@@ -193,6 +193,21 @@ Markdown and code files support inline editing in the viewer. The viewer watches
 
 Pressing Escape closes the viewer (when not actively editing).
 
+### Agent integrations
+
+Collaborator exposes two local integrations for agents:
+
+* `collab-canvas`: a CLI for direct canvas control
+* `collab-canvas-mcp`: a stdio MCP server that exposes canvas tools backed by the same app RPC
+
+The MCP server is intended for agent clients that support local MCP process servers. It exposes tools for:
+
+* listing, creating, moving, resizing, focusing, and removing tiles
+* reading and writing terminal tiles
+* getting and setting the viewport
+
+The installed wrapper commands use the running Collaborator app as their transport, so the app must be open before starting either integration.
+
 ### Persistence
 
 All state is stored locally in `~/.collaborator/`.

@@ -21,15 +21,20 @@ const INSTALL_DIR = IS_WIN
   : join(homedir(), ".local", "bin");
 const WRAPPER_PATH = join(INSTALL_DIR, IS_WIN ? "collab-canvas.cmd" : "collab-canvas");
 const MJS_PATH = join(INSTALL_DIR, "collab-cli.mjs");
+const MCP_WRAPPER_PATH = join(
+  INSTALL_DIR,
+  IS_WIN ? "collab-canvas-mcp.cmd" : "collab-canvas-mcp",
+);
+const MCP_MJS_PATH = join(INSTALL_DIR, "collab-mcp.mjs");
 
-function getMjsSource(): string {
+function getCliSource(filename: string): string {
   if (app.isPackaged) {
-    return join(process.resourcesPath, "collab-cli.mjs");
+    return join(process.resourcesPath, filename);
   }
-  return join(app.getAppPath(), "cli", "collab-cli.mjs");
+  return join(app.getAppPath(), "cli", filename);
 }
 
-function generateUnixWrapper(): string {
+function generateUnixWrapper(scriptName: string): string {
   return `#!/usr/bin/env bash
 set -euo pipefail
 NODE_BIN="$(cat "$HOME/.collaborator/node-path" 2>/dev/null)" || true
@@ -37,11 +42,11 @@ if [[ -z "$NODE_BIN" || ! -x "$NODE_BIN" ]]; then
   echo "error: collaborator is not running (no node-path file)" >&2
   exit 2
 fi
-ELECTRON_RUN_AS_NODE=1 exec "$NODE_BIN" "$(dirname "$0")/collab-cli.mjs" "$@"
+ELECTRON_RUN_AS_NODE=1 exec "$NODE_BIN" "$(dirname "$0")/${scriptName}" "$@"
 `;
 }
 
-function generateWindowsWrapper(): string {
+function generateWindowsWrapper(scriptName: string): string {
   return `@echo off
 setlocal
 set "NP_FILE=%USERPROFILE%\\.collaborator\\node-path"
@@ -51,14 +56,18 @@ if not exist "%NP_FILE%" (
 )
 set /p NODE_BIN=<"%NP_FILE%"
 set ELECTRON_RUN_AS_NODE=1
-"%NODE_BIN%" "%~dp0collab-cli.mjs" %*
+"%NODE_BIN%" "%~dp0${scriptName}" %*
 `;
 }
 
 export function installCli(): void {
-  const mjsSource = getMjsSource();
-  if (!existsSync(mjsSource)) {
-    console.warn("[cli-installer] CLI source not found:", mjsSource);
+  const cliSource = getCliSource("collab-cli.mjs");
+  const mcpSource = getCliSource("collab-mcp.mjs");
+  if (!existsSync(cliSource) || !existsSync(mcpSource)) {
+    console.warn(
+      "[cli-installer] CLI source not found:",
+      !existsSync(cliSource) ? cliSource : mcpSource,
+    );
     return;
   }
 
@@ -75,12 +84,22 @@ export function installCli(): void {
 
   mkdirSync(INSTALL_DIR, { recursive: true });
 
-  copyFileSync(mjsSource, MJS_PATH);
+  copyFileSync(cliSource, MJS_PATH);
+  copyFileSync(mcpSource, MCP_MJS_PATH);
 
-  const wrapper = IS_WIN ? generateWindowsWrapper() : generateUnixWrapper();
+  const wrapper = IS_WIN
+    ? generateWindowsWrapper("collab-cli.mjs")
+    : generateUnixWrapper("collab-cli.mjs");
   writeFileSync(WRAPPER_PATH, wrapper, "utf-8");
+
+  const mcpWrapper = IS_WIN
+    ? generateWindowsWrapper("collab-mcp.mjs")
+    : generateUnixWrapper("collab-mcp.mjs");
+  writeFileSync(MCP_WRAPPER_PATH, mcpWrapper, "utf-8");
+
   if (!IS_WIN) {
     chmodSync(WRAPPER_PATH, 0o755);
+    chmodSync(MCP_WRAPPER_PATH, 0o755);
   }
 
   if (IS_WIN) {
