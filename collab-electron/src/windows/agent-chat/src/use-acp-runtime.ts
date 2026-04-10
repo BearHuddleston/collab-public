@@ -315,14 +315,13 @@ function createAcpAdapter(
       // Yield updates periodically until complete
       try {
         let lastYieldedLen = 0;
+        let lastToolCount = 0;
         while (true) {
-          // Check if aborted
           if (abortSignal?.aborted) {
             window.api.agentCancel(sessionId);
             break;
           }
 
-          // Check if complete
           const done = await Promise.race([
             completionPromise.then(() => true),
             new Promise<false>((r) =>
@@ -330,9 +329,12 @@ function createAcpAdapter(
             ),
           ]);
 
-          // Yield current state if text changed
-          if (textAccum.length > lastYieldedLen || done) {
+          const changed =
+            textAccum.length > lastYieldedLen ||
+            toolCalls.length > lastToolCount;
+          if (changed || done) {
             lastYieldedLen = textAccum.length;
+            lastToolCount = toolCalls.length;
             const content: ChatModelRunResult["content"] =
               [];
             if (textAccum) {
@@ -346,6 +348,7 @@ function createAcpAdapter(
                 type: "tool-call",
                 toolCallId: tc.toolCallId,
                 toolName: tc.toolName,
+                argsText: JSON.stringify(tc.args),
                 args: tc.args,
                 result: tc.result,
               });

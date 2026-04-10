@@ -1,4 +1,4 @@
-import { makeAssistantToolUI } from "@assistant-ui/react";
+import { type ComponentType } from "react";
 import {
   Terminal,
   FileText,
@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 
 const TOOL_ICONS: Record<
-  string, React.ComponentType<{ size: number }>
+  string, ComponentType<{ size: number }>
 > = {
   bash: Terminal,
   Bash: Terminal,
@@ -55,50 +55,55 @@ function getLabel(toolName: string, args: unknown): string {
   return toolName;
 }
 
-export const FallbackToolUI = makeAssistantToolUI({
-  toolName: "*",
-  render: ({ toolName, args, result, status }) => {
-    const Icon = getIcon(toolName);
-    const label = getLabel(toolName, args);
-    const isRunning = status.type === "running";
+export function ToolCallFallback({
+  toolName,
+  args,
+  result,
+  status,
+}: {
+  toolName: string;
+  args: unknown;
+  argsText: string;
+  result: unknown;
+  status: { type: string };
+}) {
+  const Icon = getIcon(toolName);
+  const label = getLabel(toolName, args);
+  const isRunning = status.type === "running";
 
-    return (
-      <details
-        className="my-1 rounded-lg border border-border bg-card text-xs"
+  return (
+    <details
+      className="my-1 rounded-lg border border-border bg-card text-xs"
+    >
+      <summary
+        className="flex cursor-pointer items-center gap-2 px-3 py-2 text-muted-foreground select-none"
       >
-        <summary
-          className="flex cursor-pointer items-center gap-2 px-3 py-2 text-muted-foreground select-none"
-        >
-          {isRunning ? (
-            <Loader2 size={12} className="animate-spin" />
-          ) : (
-            <Check
-              size={12}
-              className="text-green-500"
-            />
-          )}
-          <Icon size={12} />
-          <span className="font-mono truncate">
-            {label}
-          </span>
-        </summary>
-        <div className="border-t border-border px-3 py-2">
-          {args && (
-            <pre className="whitespace-pre-wrap break-all font-mono opacity-80">
-              {JSON.stringify(args, null, 2)}
+        {isRunning ? (
+          <Loader2 size={12} className="animate-spin" />
+        ) : (
+          <Check size={12} className="text-green-500" />
+        )}
+        <Icon size={12} />
+        <span className="font-mono truncate">
+          {label}
+        </span>
+      </summary>
+      <div className="border-t border-border px-3 py-2">
+        {args && (
+          <pre className="whitespace-pre-wrap break-all font-mono opacity-80">
+            {JSON.stringify(args, null, 2)}
+          </pre>
+        )}
+        {result !== undefined && (
+          <div className="mt-2 border-t border-border pt-2">
+            <pre className="whitespace-pre-wrap break-all font-mono opacity-70">
+              {typeof result === "string"
+                ? result
+                : JSON.stringify(result, null, 2)}
             </pre>
-          )}
-          {result !== undefined && (
-            <div className="mt-2 border-t border-border pt-2">
-              <pre className="whitespace-pre-wrap break-all font-mono opacity-70">
-                {typeof result === "string"
-                  ? result
-                  : JSON.stringify(result, null, 2)}
-              </pre>
-            </div>
-          )}
-        </div>
-      </details>
-    );
-  },
-});
+          </div>
+        )}
+      </div>
+    </details>
+  );
+}

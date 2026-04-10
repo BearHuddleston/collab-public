@@ -5,7 +5,7 @@ import {
 } from "@assistant-ui/react";
 import { ArrowUp } from "lucide-react";
 import { MarkdownText } from "./MarkdownText";
-import { FallbackToolUI } from "./ToolCallCard";
+import { ToolCallFallback } from "./ToolCallCard";
 
 function UserMessage() {
   return (
@@ -30,7 +30,9 @@ function AssistantMessage() {
         <MessagePrimitive.Content
           components={{
             Text: MarkdownText,
-            tools: { by_name: {}, Fallback: FallbackToolUI },
+            tools: {
+              Fallback: ToolCallFallback,
+            },
           }}
         />
       </div>
