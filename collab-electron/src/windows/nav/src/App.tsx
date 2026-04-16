@@ -183,6 +183,17 @@ export default function App() {
 		folderPath: string;
 	} | null>(null);
 	const [searchQuery, setSearchQuery] = useState('');
+	const [listView, setListView] = useState(() => {
+		const stored = localStorage.getItem('nav_list_view');
+		return stored === 'true';
+	});
+	const toggleListView = useCallback(() => {
+		setListView((prev) => {
+			const next = !prev;
+			localStorage.setItem('nav_list_view', String(next));
+			return next;
+		});
+	}, []);
 
 	const workspaces = useMemo(
 		() =>
@@ -238,10 +249,14 @@ export default function App() {
 	);
 
 	// Assemble flat items lazily from workspace refs
+	const isSearching = searchQuery.trim().length > 0;
 	const getAllFlatItems = useCallback(() => {
 		const items: FlatItem[] = [];
 		for (const ws of sortedWorkspaces) {
-			if (!expandedWorkspaces.has(ws.path))
+			if (
+				!isSearching &&
+				!expandedWorkspaces.has(ws.path)
+			)
 				continue;
 			const ref =
 				workspaceRefsMap.current.get(ws.path);
@@ -250,11 +265,81 @@ export default function App() {
 			}
 		}
 		return items;
-	}, [sortedWorkspaces, expandedWorkspaces]);
+	}, [sortedWorkspaces, expandedWorkspaces, isSearching]);
 
 	const focusActiveSearch = useCallback(() => {
 		window.focus();
 		treeSearchRef.current?.focusSearch();
+	}, []);
+
+	// Tooltip system — same data-tooltip pattern as shell window
+	useEffect(() => {
+		const GAP = 8;
+		let tooltipEl: HTMLDivElement | null = null;
+		let activeTarget: Element | null = null;
+
+		function show(target: Element) {
+			if (target === activeTarget) return;
+			activeTarget = target;
+			const label = (target as HTMLElement).dataset.tooltip;
+			if (!label) return;
+
+			if (!tooltipEl) {
+				tooltipEl = document.createElement("div");
+				tooltipEl.className = "nav-tooltip";
+				document.body.appendChild(tooltipEl);
+			}
+
+			tooltipEl.textContent = label;
+
+			const rect = target.getBoundingClientRect();
+			tooltipEl.classList.remove("visible");
+			tooltipEl.style.left = "";
+			tooltipEl.style.top = "";
+
+			const tw = tooltipEl.offsetWidth;
+			const th = tooltipEl.offsetHeight;
+			const vw = window.innerWidth;
+
+			// Position above, centered; shift left if near edge
+			let left = rect.left + rect.width / 2 - tw / 2;
+			if (left + tw > vw - 8) left = vw - 8 - tw;
+			if (left < 8) left = 8;
+
+			tooltipEl.style.left = `${left}px`;
+			tooltipEl.style.top = `${rect.top - th - GAP}px`;
+
+			requestAnimationFrame(() => tooltipEl?.classList.add("visible"));
+		}
+
+		function hide() {
+			activeTarget = null;
+			tooltipEl?.classList.remove("visible");
+		}
+
+		const onEnter = (e: Event) => {
+			const target = (e.target as Element)?.closest?.("[data-tooltip]");
+			if (target) show(target);
+		};
+		const onLeave = (e: MouseEvent) => {
+			const leaving = (e.target as Element)?.closest?.("[data-tooltip]");
+			if (!leaving) return;
+			const entering = (e.relatedTarget as Element)?.closest?.("[data-tooltip]");
+			if (entering === leaving) return;
+			hide();
+		};
+		const onDown = () => hide();
+
+		document.addEventListener("mouseenter", onEnter, true);
+		document.addEventListener("mouseleave", onLeave as EventListener, true);
+		document.addEventListener("mousedown", onDown, true);
+
+		return () => {
+			document.removeEventListener("mouseenter", onEnter, true);
+			document.removeEventListener("mouseleave", onLeave as EventListener, true);
+			document.removeEventListener("mousedown", onDown, true);
+			tooltipEl?.remove();
+		};
 	}, []);
 
 	useEffect(() => {
@@ -1002,7 +1087,10 @@ export default function App() {
 		) => {
 			const allNavigable: FlatItem[] = [];
 			for (const ws of sortedWorkspaces) {
-				if (!expandedWorkspaces.has(ws.path))
+				if (
+					!isSearching &&
+					!expandedWorkspaces.has(ws.path)
+				)
 					continue;
 				const ref =
 					workspaceRefsMap.current.get(
@@ -1091,6 +1179,7 @@ export default function App() {
 		[
 			sortedWorkspaces,
 			expandedWorkspaces,
+			isSearching,
 			selectedPath,
 			multiSelect.cursor,
 			multiSelect.handleClick,
@@ -1263,6 +1352,12 @@ export default function App() {
 								onArrowNav={
 									navigateItems
 								}
+								listView={
+									listView
+								}
+								onToggleListView={
+									toggleListView
+								}
 							/>
 							<div className="workspace-add-row">
 								<button
@@ -1391,6 +1486,9 @@ export default function App() {
 												}
 												searchQuery={
 													searchQuery
+												}
+												listView={
+													listView
 												}
 												initialExpandAll={pendingExpandAll.has(
 													ws.path,

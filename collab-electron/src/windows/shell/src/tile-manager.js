@@ -596,12 +596,21 @@ export function createTileManager({
 		saveCanvasImmediate();
 	}
 
-	function createFileTile(type, cx, cy, filePath) {
-		const tile = createCanvasTile(type, cx, cy, { filePath });
+	function createFileTile(type, cx, cy, filePath, extra = {}) {
+		const tile = createCanvasTile(type, cx, cy, { ...extra, filePath });
 		const dom = tileDOMs.get(tile.id);
 		if (!dom) return tile;
 
-		if (type === "image") {
+		if (type === "pdf") {
+			const wv = document.createElement("webview");
+			wv.setAttribute("src", toCollabFileUrl(filePath));
+			wv.setAttribute("webpreferences", "contextIsolation=yes, sandbox=yes");
+			wv.style.width = "100%";
+			wv.style.height = "100%";
+			wv.style.border = "none";
+			dom.contentArea.appendChild(wv);
+			dom.webview = wv;
+		} else if (type === "image") {
 			const img = document.createElement("img");
 			img.src = toCollabFileUrl(filePath);
 			img.style.width = "100%";
@@ -710,7 +719,12 @@ export function createTileManager({
 				spawnBrowserWebview(tile);
 			} else if (saved.filePath) {
 				createFileTile(
-					saved.type, cx, cy, saved.filePath,
+					saved.type, cx, cy, saved.filePath, {
+						id: saved.id,
+						width: saved.width,
+						height: saved.height,
+						zIndex: saved.zIndex,
+					},
 				);
 			}
 		}
